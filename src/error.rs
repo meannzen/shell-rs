@@ -1,7 +1,7 @@
 #[derive(Debug)]
 pub enum ShellError {
     Io(std::io::Error),
-    ParserError(String),
+    ParseError(String),
     CommandNotFound(String),
     PermissionDenied(String),
     IntenalError(String),
@@ -17,6 +17,6 @@ impl From<std::io::Error> for ShellError {
 
 impl std::fmt::Display for ShellError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{:?}", self)
     }
 }
