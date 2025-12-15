@@ -45,8 +45,21 @@ fn execute_type(args: &[String]) -> Result<i32, ShellError> {
         return Ok(0);
     }
 
-    Err(ShellError::CommandNotFound(format!(
-        "{}: not found",
-        program
-    )))
+    let output = std::process::Command::new("which")
+        .arg(program)
+        .output()
+        .map_err(|_| ShellError::CommandNotFound(format!("{}: not found", program)))?;
+
+    if !output.status.success() || output.stdout.is_empty() {
+        return Err(ShellError::CommandNotFound(format!(
+            "{}: not found",
+            program
+        )));
+    }
+
+    let output = str::from_utf8(&output.stdout)
+        .map_err(|_| ShellError::IntenalError("Not valid UTF-8".to_string()))?;
+
+    print!("{} is {}", program, output);
+    Ok(0)
 }
