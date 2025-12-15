@@ -11,16 +11,23 @@ impl Token {
         let mut tokens = Vec::new();
         let mut chars = input.chars().peekable();
 
-        while chars.peek().is_some() {
-            if let Some(&c) = chars.peek()
-                && c.is_whitespace()
-            {
+        while let Some(&c) = chars.peek() {
+            if c.is_whitespace() {
+                chars.next();
+                continue;
+            }
+
+            if matches!(c, '|' | ';' | '>' | '<' | '&') {
+                tokens.push(Token::Word(c.to_string()));
                 chars.next();
                 continue;
             }
 
             let token = Token::read_word(&mut chars);
-            tokens.push(token);
+            let Token::Word(word) = &token;
+            if !word.is_empty() {
+                tokens.push(token);
+            }
         }
 
         Ok(tokens)

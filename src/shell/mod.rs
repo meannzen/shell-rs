@@ -25,8 +25,8 @@ impl Shell {
             match execute_pipeline(self, pipeline) {
                 Ok(_exit_code) => {}
                 Err(e) => match e {
-                    ShellError::CommandNotFound(msg) => {
-                        eprintln!("{}", msg);
+                    ShellError::CommandNotFound(cmd) => {
+                        eprintln!("{}: command not found", cmd);
                     }
                     _ => {
                         eprintln!("{}", e);
@@ -54,7 +54,6 @@ impl Shell {
 
             match reader.read_line(&mut line) {
                 Ok(0) => {
-                    println!();
                     println!("Exiting shell...");
                     break;
                 }

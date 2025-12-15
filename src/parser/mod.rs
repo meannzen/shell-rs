@@ -25,8 +25,16 @@ fn parse_pipeline(
     tokens_iter: &mut std::iter::Peekable<std::vec::IntoIter<Token>>,
 ) -> Result<Pipeline, ShellError> {
     let mut commands: Vec<Command> = Vec::new();
-    let command = parse_command(tokens_iter)?;
-    commands.push(command);
+    commands.push(parse_command(tokens_iter)?);
+
+    while let Some(Token::Word(s)) = tokens_iter.peek() {
+        if s == "|" {
+            tokens_iter.next(); // consume the pipe
+            commands.push(parse_command(tokens_iter)?);
+        } else {
+            break;
+        }
+    }
 
     Ok(Pipeline { commands })
 }
@@ -36,7 +44,7 @@ fn parse_command(
 ) -> Result<Command, ShellError> {
     let program = match tokens_iter.next() {
         Some(Token::Word(s)) => s,
-        None => {
+        _ => {
             return Err(ShellError::ParseError(
                 "Unexpected end of input".to_string(),
             ));
@@ -44,16 +52,35 @@ fn parse_command(
     };
 
     let mut arguments: Vec<String> = Vec::new();
-    let input_file: Option<String> = None;
-    let output_mode: Option<String> = None;
+    let mut input_file: Option<String> = None;
+    let mut output_file: Option<String> = None;
 
-    while tokens_iter.peek().is_some() {
-        match tokens_iter.peek() {
-            Some(Token::Word(arg)) => {
-                arguments.push(arg.to_string());
+    while let Some(token) = tokens_iter.peek() {
+        match token {
+            Token::Word(s) if s == "|" => break,
+            Token::Word(s) if s == "<" => {
+                tokens_iter.next(); // consume "<"
+                if let Some(Token::Word(file)) = tokens_iter.next() {
+                    input_file = Some(file);
+                } else {
+                    return Err(ShellError::ParseError(
+                        "Expected file name after '<'".to_string(),
+                    ));
+                }
             }
-            _ => {
-                break;
+            Token::Word(s) if s == ">" => {
+                tokens_iter.next(); // consume ">"
+                if let Some(Token::Word(file)) = tokens_iter.next() {
+                    output_file = Some(file);
+                } else {
+                    return Err(ShellError::ParseError(
+                        "Expected file name after '>'".to_string(),
+                    ));
+                }
+            }
+            Token::Word(arg) => {
+                arguments.push(arg.clone());
+                tokens_iter.next();
             }
         }
     }
@@ -62,6 +89,6 @@ fn parse_command(
         program,
         arguments,
         input: input_file,
-        output: output_mode,
+        output: output_file,
     })
 }
