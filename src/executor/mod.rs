@@ -37,13 +37,11 @@ pub fn execute_pipeline(shell: &mut Shell, pipeline: Pipeline) -> Result<i32, Sh
 
         let stdout = if i < pipeline.commands.len() - 1 {
             Stdio::piped()
+        } else if let Some(output_file) = &command.output {
+            let file = std::fs::File::create(output_file)?;
+            Stdio::from(file)
         } else {
-            if let Some(output_file) = &command.output {
-                let file = std::fs::File::create(output_file)?;
-                Stdio::from(file)
-            } else {
-                Stdio::inherit()
-            }
+            Stdio::inherit()
         };
 
         let mut child = Command::new(&command.program)
@@ -53,7 +51,7 @@ pub fn execute_pipeline(shell: &mut Shell, pipeline: Pipeline) -> Result<i32, Sh
             .spawn()
             .map_err(|e| {
                 if e.kind() == std::io::ErrorKind::NotFound {
-                    ShellError::CommandNotFound(command.program.clone())
+                    ShellError::CommandNotFound(format!("{}: command not found", command.program))
                 } else {
                     e.into()
                 }

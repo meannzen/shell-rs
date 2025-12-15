@@ -26,7 +26,7 @@ impl Shell {
                 Ok(_exit_code) => {}
                 Err(e) => match e {
                     ShellError::CommandNotFound(cmd) => {
-                        eprintln!("{}: command not found", cmd);
+                        eprintln!("{}", cmd);
                     }
                     _ => {
                         eprintln!("{}", e);
