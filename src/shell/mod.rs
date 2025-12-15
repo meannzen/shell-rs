@@ -23,15 +23,13 @@ impl Shell {
     pub fn execute_pipelines(&mut self, pipelines: Vec<Pipeline>) {
         for pipeline in pipelines {
             match execute_pipeline(self, pipeline) {
-                Ok(exit_code) => {
-                    println!("{}", exit_code);
-                }
+                Ok(_exit_code) => {}
                 Err(e) => match e {
                     ShellError::CommandNotFound(msg) => {
                         eprintln!("{}", msg);
                     }
                     _ => {
-                        eprintln!("----->{}", e);
+                        eprintln!("{}", e);
                     }
                 },
             }
