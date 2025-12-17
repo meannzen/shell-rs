@@ -4,6 +4,7 @@ use std::{iter::Peekable, str::Chars};
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Word(String),
+    Space,
 }
 
 impl Token {
@@ -14,6 +15,7 @@ impl Token {
         while let Some(&c) = chars.peek() {
             if c.is_whitespace() {
                 chars.next();
+                tokens.push(Token::Space);
                 continue;
             }
 
@@ -23,9 +25,10 @@ impl Token {
                 continue;
             }
 
-            let token = Token::read_word(&mut chars);
-            let Token::Word(word) = &token;
-            if !word.is_empty() {
+            let token = Token::read_word(&mut chars)?;
+            if let Token::Word(word) = &token
+                && !word.is_empty()
+            {
                 tokens.push(token);
             }
         }
@@ -33,10 +36,31 @@ impl Token {
         Ok(tokens)
     }
 
-    fn read_word(chars: &mut Peekable<Chars>) -> Token {
+    fn read_word(chars: &mut Peekable<Chars>) -> Result<Token, ShellError> {
         let mut word = String::new();
 
         while let Some(&c) = chars.peek() {
+            if c == '\'' {
+                chars.next();
+
+                let mut found_closing = false;
+                while let Some(&ch) = chars.peek() {
+                    if ch == '\'' {
+                        chars.next();
+                        found_closing = true;
+                        break;
+                    }
+                    word.push(ch);
+                    chars.next();
+                }
+
+                if !found_closing {
+                    return Err(ShellError::ParseError("Unclosed single quote".to_string()));
+                }
+
+                continue;
+            }
+
             if c.is_whitespace() {
                 break;
             }
@@ -48,6 +72,6 @@ impl Token {
             chars.next();
         }
 
-        Token::Word(word)
+        Ok(Token::Word(word))
     }
 }

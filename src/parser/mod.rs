@@ -82,6 +82,10 @@ fn parse_command(
                 arguments.push(arg.clone());
                 tokens_iter.next();
             }
+
+            Token::Space => {
+                tokens_iter.next();
+            }
         }
     }
 

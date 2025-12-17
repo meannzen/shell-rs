@@ -97,10 +97,31 @@ fn execute_exit(args: &[String]) -> Result<i32, ShellError> {
 }
 
 fn execute_echo(args: &[String]) -> Result<i32, ShellError> {
-    println!("{}", args.join(" "));
+    let has_quote = args.iter().any(|s| s.contains('\''));
+
+    if has_quote {
+        let joined = args.join("");
+        let clean = joined.replace("'", "");
+        println!("{}", clean.trim());
+        return Ok(0);
+    }
+
+    let filtered: Vec<&str> = args
+        .iter()
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| s.as_str())
+        .collect();
+
+    if filtered.is_empty() {
+        println!();
+        return Ok(0);
+    }
+
+    let joined = filtered.join(" ");
+    println!("{}", joined.trim());
+
     Ok(0)
 }
-
 fn execute_type(args: &[String]) -> Result<i32, ShellError> {
     if args.is_empty() {
         return Err(ShellError::InternalError(
