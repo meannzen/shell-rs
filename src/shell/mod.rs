@@ -28,6 +28,9 @@ impl Shell {
                     ShellError::CommandNotFound(cmd) => {
                         eprintln!("{}", cmd);
                     }
+                    ShellError::IntenalError(msg) => {
+                        eprintln!("{}", msg);
+                    }
                     _ => {
                         eprintln!("{}", e);
                     }

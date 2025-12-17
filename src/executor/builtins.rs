@@ -1,8 +1,8 @@
-use std::env;
+use std::{env, path::Path};
 
 use crate::{error::ShellError, parser::ast::Command, shell::Shell};
 
-const BUILTINS: &[&str] = &["exit", "echo", "type", "pwd"];
+const BUILTINS: &[&str] = &["exit", "echo", "type", "pwd", "cd"];
 
 pub fn is_builtin(program: &str) -> bool {
     BUILTINS.contains(&program)
@@ -14,6 +14,7 @@ pub fn execute_builtin(_shell: &mut Shell, command: &Command) -> Result<i32, She
         "echo" => execute_echo(&command.arguments),
         "type" => execute_type(&command.arguments),
         "pwd" => execute_pwd(),
+        "cd" => execute_cd(&command.arguments),
         _ => Err(ShellError::CommandNotFound(format!(
             "{}: command not found",
             command.program
@@ -24,6 +25,17 @@ pub fn execute_builtin(_shell: &mut Shell, command: &Command) -> Result<i32, She
 fn execute_pwd() -> Result<i32, ShellError> {
     let current_path = env::current_dir()?;
     println!("{}", current_path.display());
+    Ok(0)
+}
+
+fn execute_cd(args: &[String]) -> Result<i32, ShellError> {
+    let new_dir = args.join("");
+    if env::set_current_dir(Path::new(&new_dir)).is_err() {
+        return Err(ShellError::IntenalError(format!(
+            "cd: {}: No such file or directory",
+            new_dir
+        )));
+    }
     Ok(0)
 }
 
