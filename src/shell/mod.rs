@@ -28,7 +28,7 @@ impl Shell {
                     ShellError::CommandNotFound(cmd) => {
                         eprintln!("{}", cmd);
                     }
-                    ShellError::IntenalError(msg) => {
+                    ShellError::InternalError(msg) => {
                         eprintln!("{}", msg);
                     }
                     _ => {

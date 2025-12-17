@@ -1,4 +1,4 @@
-use std::{env, path::Path};
+use std::env;
 
 use crate::{error::ShellError, parser::ast::Command, shell::Shell};
 
@@ -29,14 +29,62 @@ fn execute_pwd() -> Result<i32, ShellError> {
 }
 
 fn execute_cd(args: &[String]) -> Result<i32, ShellError> {
-    let new_dir = args.join("");
-    if env::set_current_dir(Path::new(&new_dir)).is_err() {
-        return Err(ShellError::IntenalError(format!(
+    let new_dir = if args.is_empty() {
+        if let Some(home) = std::env::home_dir() {
+            home
+        } else {
+            return Err(ShellError::InternalError(
+                "cd: no home directory found".to_string(),
+            ));
+        }
+    } else if args.len() != 1 {
+        return Err(ShellError::InternalError(
+            "cd: too many arguments".to_string(),
+        ));
+    } else {
+        let raw = &args[0];
+
+        if raw == "~" {
+            if let Some(home) = std::env::home_dir() {
+                home
+            } else {
+                return Err(ShellError::InternalError(
+                    "cd: no home directory found".to_string(),
+                ));
+            }
+        } else if let Some(stripped) = raw.strip_prefix("~/") {
+            if let Some(home) = std::env::home_dir() {
+                home.join(stripped)
+            } else {
+                return Err(ShellError::InternalError(
+                    "cd: no home directory found".to_string(),
+                ));
+            }
+        } else {
+            std::path::PathBuf::from(raw)
+        }
+    };
+
+    if std::env::set_current_dir(&new_dir).is_ok() {
+        Ok(0)
+    } else {
+        let display = if new_dir == std::env::home_dir().unwrap_or_default() {
+            "~".to_string()
+        } else if let Some(home) = std::env::home_dir() {
+            if let Ok(rel) = new_dir.strip_prefix(&home) {
+                format!("~{}", rel.display())
+            } else {
+                new_dir.display().to_string()
+            }
+        } else {
+            new_dir.display().to_string()
+        };
+
+        Err(ShellError::InternalError(format!(
             "cd: {}: No such file or directory",
-            new_dir
-        )));
+            display
+        )))
     }
-    Ok(0)
 }
 
 fn execute_exit(args: &[String]) -> Result<i32, ShellError> {
@@ -55,7 +103,7 @@ fn execute_echo(args: &[String]) -> Result<i32, ShellError> {
 
 fn execute_type(args: &[String]) -> Result<i32, ShellError> {
     if args.is_empty() {
-        return Err(ShellError::IntenalError(
+        return Err(ShellError::InternalError(
             "need at least one argument".to_string(),
         ));
     }
@@ -79,7 +127,7 @@ fn execute_type(args: &[String]) -> Result<i32, ShellError> {
     }
 
     let output = str::from_utf8(&output.stdout)
-        .map_err(|_| ShellError::IntenalError("Not valid UTF-8".to_string()))?;
+        .map_err(|_| ShellError::InternalError("Not valid UTF-8".to_string()))?;
 
     print!("{} is {}", program, output);
     Ok(0)

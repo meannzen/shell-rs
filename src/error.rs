@@ -4,7 +4,7 @@ pub enum ShellError {
     ParseError(String),
     CommandNotFound(String),
     PermissionDenied(String),
-    IntenalError(String),
+    InternalError(String),
 }
 
 impl std::error::Error for ShellError {}
