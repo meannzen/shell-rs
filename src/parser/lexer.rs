@@ -4,7 +4,6 @@ use std::{iter::Peekable, str::Chars};
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Word(String),
-    Space,
 }
 
 impl Token {
@@ -15,7 +14,6 @@ impl Token {
         while let Some(&c) = chars.peek() {
             if c.is_whitespace() {
                 chars.next();
-                tokens.push(Token::Space);
                 continue;
             }
 
@@ -25,18 +23,16 @@ impl Token {
                 continue;
             }
 
-            let token = Token::read_word(&mut chars)?;
-            if let Token::Word(word) = &token
-                && !word.is_empty()
-            {
-                tokens.push(token);
+            let word = Token::read_word(&mut chars)?;
+            if !word.is_empty() {
+                tokens.push(Token::Word(word));
             }
         }
 
         Ok(tokens)
     }
 
-    fn read_word(chars: &mut Peekable<Chars>) -> Result<Token, ShellError> {
+    fn read_word(chars: &mut Peekable<Chars>) -> Result<String, ShellError> {
         let mut word = String::new();
 
         while let Some(&c) = chars.peek() {
@@ -61,6 +57,35 @@ impl Token {
                 continue;
             }
 
+            if c == '"' {
+                chars.next();
+
+                let mut found_closing = false;
+                while let Some(&ch) = chars.peek() {
+                    if ch == '"' {
+                        chars.next();
+                        found_closing = true;
+                        break;
+                    }
+                    if ch == '\\' {
+                        chars.next();
+                        if let Some(&escaped) = chars.peek() {
+                            word.push(escaped);
+                            chars.next();
+                        }
+                    } else {
+                        word.push(ch);
+                        chars.next();
+                    }
+                }
+
+                if !found_closing {
+                    return Err(ShellError::ParseError("Unclosed double quote".to_string()));
+                }
+
+                continue;
+            }
+
             if c.is_whitespace() {
                 break;
             }
@@ -72,6 +97,6 @@ impl Token {
             chars.next();
         }
 
-        Ok(Token::Word(word))
+        Ok(word)
     }
 }
