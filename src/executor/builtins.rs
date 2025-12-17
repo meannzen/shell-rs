@@ -1,6 +1,8 @@
+use std::env;
+
 use crate::{error::ShellError, parser::ast::Command, shell::Shell};
 
-const BUILTINS: &[&str] = &["exit", "echo", "type"];
+const BUILTINS: &[&str] = &["exit", "echo", "type", "pwd"];
 
 pub fn is_builtin(program: &str) -> bool {
     BUILTINS.contains(&program)
@@ -11,11 +13,18 @@ pub fn execute_builtin(_shell: &mut Shell, command: &Command) -> Result<i32, She
         "exit" => execute_exit(&command.arguments),
         "echo" => execute_echo(&command.arguments),
         "type" => execute_type(&command.arguments),
+        "pwd" => execute_pwd(),
         _ => Err(ShellError::CommandNotFound(format!(
             "{}: command not found",
             command.program
         ))),
     }
+}
+
+fn execute_pwd() -> Result<i32, ShellError> {
+    let current_path = env::current_dir()?;
+    println!("{}", current_path.display());
+    Ok(0)
 }
 
 fn execute_exit(args: &[String]) -> Result<i32, ShellError> {
