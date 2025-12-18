@@ -70,8 +70,20 @@ impl Token {
                     if ch == '\\' {
                         chars.next();
                         if let Some(&escaped) = chars.peek() {
-                            word.push(escaped);
-                            chars.next();
+                            match escaped {
+                                '$' | '`' | '"' | '\\' => {
+                                    word.push(escaped);
+                                    chars.next();
+                                }
+                                '\n' => {
+                                    chars.next();
+                                }
+                                _ => {
+                                    word.push('\\');
+                                    word.push(escaped);
+                                    chars.next();
+                                }
+                            }
                         }
                     } else {
                         word.push(ch);
@@ -93,10 +105,67 @@ impl Token {
                 break;
             }
 
-            word.push(c);
-            chars.next();
+            if c == '\\' {
+                chars.next();
+                if let Some(&escaped) = chars.peek() {
+                    word.push(escaped);
+                    chars.next();
+                }
+            } else {
+                word.push(c);
+                chars.next();
+            }
         }
 
         Ok(word)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Token;
+    #[test]
+    fn test_backslash_escapes_spaces() {
+        let input = r"echo world\ \ \ \ \ \ script";
+        let tokens = Token::tokenize(input).unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0], Token::Word("echo".to_string()));
+        assert_eq!(tokens[1], Token::Word("world      script".to_string()));
+    }
+
+    #[test]
+    fn test_backslash_with_mixed_spaces() {
+        let input = r"echo before\ after";
+        let tokens = Token::tokenize(input).unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0], Token::Word("echo".to_string()));
+        assert_eq!(tokens[1], Token::Word("before after".to_string()));
+    }
+
+    #[test]
+    fn test_backslash_n_literal() {
+        let input = r"echo test\nexample";
+        let tokens = Token::tokenize(input).unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0], Token::Word("echo".to_string()));
+        assert_eq!(tokens[1], Token::Word("testnexample".to_string()));
+    }
+
+    #[test]
+    fn test_escaped_backslash() {
+        let input = r"echo hello\\world";
+        let tokens = Token::tokenize(input).unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0], Token::Word("echo".to_string()));
+        assert_eq!(tokens[1], Token::Word("hello\\world".to_string()));
+    }
+
+    #[test]
+    fn test_escaped_single_quotes() {
+        let input = r"echo \'hello\'";
+        let tokens = Token::tokenize(input).unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert_eq!(tokens[0], Token::Word("echo".to_string()));
+        assert_eq!(tokens[1], Token::Word("'hello'".to_string()));
     }
 }
