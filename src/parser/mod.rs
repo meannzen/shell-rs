@@ -27,9 +27,9 @@ fn parse_pipeline(
     let mut commands: Vec<Command> = Vec::new();
     commands.push(parse_command(tokens_iter)?);
 
-    while let Some(Token::Word(s)) = tokens_iter.peek() {
-        if s == "|" {
-            tokens_iter.next(); // consume the pipe
+    while let Some(token) = tokens_iter.peek() {
+        if matches!(token, Token::Pipe) {
+            tokens_iter.next();
             commands.push(parse_command(tokens_iter)?);
         } else {
             break;
@@ -57,9 +57,9 @@ fn parse_command(
 
     while let Some(token) = tokens_iter.peek() {
         match token {
-            Token::Word(s) if s == "|" => break,
-            Token::Word(s) if s == "<" => {
-                tokens_iter.next(); // consume "<"
+            Token::Pipe | Token::Semicolon | Token::Background => break,
+            Token::RedirectIn => {
+                tokens_iter.next();
                 if let Some(Token::Word(file)) = tokens_iter.next() {
                     input_file = Some(file);
                 } else {
@@ -68,8 +68,8 @@ fn parse_command(
                     ));
                 }
             }
-            Token::Word(s) if s == ">" => {
-                tokens_iter.next(); // consume ">"
+            Token::RedirectOut => {
+                tokens_iter.next();
                 if let Some(Token::Word(file)) = tokens_iter.next() {
                     output_file = Some(file);
                 } else {

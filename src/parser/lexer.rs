@@ -4,6 +4,11 @@ use std::{iter::Peekable, str::Chars};
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Word(String),
+    Pipe,
+    Semicolon,
+    RedirectOut,
+    RedirectIn,
+    Background,
 }
 
 impl Token {
@@ -24,21 +29,43 @@ impl Token {
                     if matches!(next_c, '>' | '<') {
                         chars.next();
                         let redir_char = chars.next().unwrap();
-                        tokens.push(Token::Word(redir_char.to_string()));
+                        tokens.push(if redir_char == '>' {
+                            Token::RedirectOut
+                        } else {
+                            Token::RedirectIn
+                        });
                         continue;
                     }
                 }
             }
 
-            if matches!(c, '|' | ';' | '>' | '<' | '&') {
-                tokens.push(Token::Word(c.to_string()));
-                chars.next();
-                continue;
-            }
-
-            let word = Token::read_word(&mut chars)?;
-            if !word.is_empty() {
-                tokens.push(Token::Word(word));
+            match c {
+                '|' => {
+                    chars.next();
+                    tokens.push(Token::Pipe);
+                }
+                ';' => {
+                    chars.next();
+                    tokens.push(Token::Semicolon);
+                }
+                '>' => {
+                    chars.next();
+                    tokens.push(Token::RedirectOut);
+                }
+                '<' => {
+                    chars.next();
+                    tokens.push(Token::RedirectIn);
+                }
+                '&' => {
+                    chars.next();
+                    tokens.push(Token::Background);
+                }
+                _ => {
+                    let word = Token::read_word(&mut chars)?;
+                    if !word.is_empty() {
+                        tokens.push(Token::Word(word));
+                    }
+                }
             }
         }
 
