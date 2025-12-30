@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, fs::OpenOptions, io::Write};
 
 use crate::{error::ShellError, parser::ast::Command, shell::Shell};
 
@@ -11,7 +11,7 @@ pub fn is_builtin(program: &str) -> bool {
 pub fn execute_builtin(_shell: &mut Shell, command: &Command) -> Result<i32, ShellError> {
     match command.program.as_str() {
         "exit" => execute_exit(&command.arguments),
-        "echo" => execute_echo(&command.arguments),
+        "echo" => execute_echo(&command),
         "type" => execute_type(&command.arguments),
         "pwd" => execute_pwd(),
         "cd" => execute_cd(&command.arguments),
@@ -96,13 +96,25 @@ fn execute_exit(args: &[String]) -> Result<i32, ShellError> {
     std::process::exit(exit_code);
 }
 
-fn execute_echo(args: &[String]) -> Result<i32, ShellError> {
-    if args.is_empty() {
+fn execute_echo(command: &Command) -> Result<i32, ShellError> {
+    if command.arguments.is_empty() {
         println!();
         return Ok(0);
     }
 
-    let output = args.join(" ");
+    if let Some(output_file) = &command.output {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(output_file)?;
+        let buff = command.arguments.join(" ");
+        file.write_all(buff.as_bytes())?;
+        file.write_all(b"\n")?;
+        return Ok(0);
+    }
+
+    let output = command.arguments.join(" ");
     println!("{}", output);
 
     Ok(0)

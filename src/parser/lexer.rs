@@ -17,6 +17,19 @@ impl Token {
                 continue;
             }
 
+            if c.is_ascii_digit() {
+                let mut lookahead = chars.clone();
+                lookahead.next(); // consume the digit
+                if let Some(&next_c) = lookahead.peek() {
+                    if matches!(next_c, '>' | '<') {
+                        chars.next();
+                        let redir_char = chars.next().unwrap();
+                        tokens.push(Token::Word(redir_char.to_string()));
+                        continue;
+                    }
+                }
+            }
+
             if matches!(c, '|' | ';' | '>' | '<' | '&') {
                 tokens.push(Token::Word(c.to_string()));
                 chars.next();

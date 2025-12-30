@@ -50,8 +50,8 @@ impl Shell {
         let mut line = String::new();
 
         loop {
-            print!("$ ");
-            let _ = std::io::stdout().flush();
+            eprint!("$ ");
+            let _ = std::io::stderr().flush();
 
             line.clear();
 
