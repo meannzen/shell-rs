@@ -6,7 +6,7 @@ pub enum Token {
     Word(String),
     Pipe,
     Semicolon,
-    RedirectOut,
+    RedirectOut(i32),
     RedirectIn,
     Background,
 }
@@ -24,13 +24,13 @@ impl Token {
 
             if c.is_ascii_digit() {
                 let mut lookahead = chars.clone();
-                lookahead.next(); // consume the digit
+                let identifie: i32 = lookahead.next().unwrap().to_string().parse().unwrap(); // consume the digit
                 if let Some(&next_c) = lookahead.peek() {
                     if matches!(next_c, '>' | '<') {
                         chars.next();
                         let redir_char = chars.next().unwrap();
                         tokens.push(if redir_char == '>' {
-                            Token::RedirectOut
+                            Token::RedirectOut(identifie)
                         } else {
                             Token::RedirectIn
                         });
@@ -50,7 +50,7 @@ impl Token {
                 }
                 '>' => {
                     chars.next();
-                    tokens.push(Token::RedirectOut);
+                    tokens.push(Token::RedirectOut(1));
                 }
                 '<' => {
                     chars.next();

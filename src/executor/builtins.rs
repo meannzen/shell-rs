@@ -12,8 +12,8 @@ pub fn execute_builtin(_shell: &mut Shell, command: &Command) -> Result<i32, She
     match command.program.as_str() {
         "exit" => execute_exit(&command.arguments),
         "echo" => execute_echo(&command),
-        "type" => execute_type(&command.arguments),
-        "pwd" => execute_pwd(),
+        "type" => execute_type(&command),
+        "pwd" => execute_pwd(&command),
         "cd" => execute_cd(&command.arguments),
         _ => Err(ShellError::CommandNotFound(format!(
             "{}: command not found",
@@ -22,9 +22,25 @@ pub fn execute_builtin(_shell: &mut Shell, command: &Command) -> Result<i32, She
     }
 }
 
-fn execute_pwd() -> Result<i32, ShellError> {
+fn execute_pwd(command: &Command) -> Result<i32, ShellError> {
     let current_path = env::current_dir()?;
-    println!("{}", current_path.display());
+    let output = format!("{}", current_path.display());
+
+    if let Some(value) = &command.output {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(value.0.clone())?;
+
+        if value.1 == 1 {
+            file.write_all(output.as_bytes())?;
+            file.write_all(b"\n")?;
+            return Ok(0);
+        }
+    }
+
+    println!("{}", output);
     Ok(0)
 }
 
@@ -102,16 +118,19 @@ fn execute_echo(command: &Command) -> Result<i32, ShellError> {
         return Ok(0);
     }
 
-    if let Some(output_file) = &command.output {
+    if let Some(value) = &command.output {
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
-            .open(output_file)?;
-        let buff = command.arguments.join(" ");
-        file.write_all(buff.as_bytes())?;
-        file.write_all(b"\n")?;
-        return Ok(0);
+            .open(value.0.clone())?;
+
+        if value.1 == 1 {
+            let buff = command.arguments.join(" ");
+            file.write_all(buff.as_bytes())?;
+            file.write_all(b"\n")?;
+            return Ok(0);
+        }
     }
 
     let output = command.arguments.join(" ");
@@ -119,7 +138,8 @@ fn execute_echo(command: &Command) -> Result<i32, ShellError> {
 
     Ok(0)
 }
-fn execute_type(args: &[String]) -> Result<i32, ShellError> {
+fn execute_type(command: &Command) -> Result<i32, ShellError> {
+    let args = &command.arguments;
     if args.is_empty() {
         return Err(ShellError::InternalError(
             "need at least one argument".to_string(),
@@ -127,26 +147,48 @@ fn execute_type(args: &[String]) -> Result<i32, ShellError> {
     }
 
     let program = &args[0];
-    if is_builtin(program) {
-        println!("{} is a shell builtin", program);
-        return Ok(0);
+    let output_msg = if is_builtin(program) {
+        format!("{} is a shell builtin", program)
+    } else {
+        let output = std::process::Command::new("which")
+            .arg(program)
+            .output()
+            .map_err(|_| ShellError::CommandNotFound(format!("{}: not found", program)))?;
+
+        if !output.status.success() || output.stdout.is_empty() {
+            return Err(ShellError::CommandNotFound(format!(
+                "{}: not found",
+                program
+            )));
+        }
+
+        let stdout_str = str::from_utf8(&output.stdout)
+            .map_err(|_| ShellError::InternalError("Not valid UTF-8".to_string()))?;
+
+        format!("{} is {}", program, stdout_str)
+    };
+
+    if let Some(value) = &command.output {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(value.0.clone())?;
+
+        if value.1 == 1 {
+            file.write_all(output_msg.as_bytes())?;
+            // only add newline if it doesn't end with one (which is mostly for the external case)
+            if !output_msg.ends_with('\n') {
+                file.write_all(b"\n")?;
+            }
+            return Ok(0);
+        }
     }
 
-    let output = std::process::Command::new("which")
-        .arg(program)
-        .output()
-        .map_err(|_| ShellError::CommandNotFound(format!("{}: not found", program)))?;
-
-    if !output.status.success() || output.stdout.is_empty() {
-        return Err(ShellError::CommandNotFound(format!(
-            "{}: not found",
-            program
-        )));
+    if output_msg.ends_with('\n') {
+        print!("{}", output_msg);
+    } else {
+        println!("{}", output_msg);
     }
-
-    let output = str::from_utf8(&output.stdout)
-        .map_err(|_| ShellError::InternalError("Not valid UTF-8".to_string()))?;
-
-    print!("{} is {}", program, output);
     Ok(0)
 }

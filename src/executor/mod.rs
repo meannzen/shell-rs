@@ -35,19 +35,27 @@ pub fn execute_pipeline(shell: &mut Shell, pipeline: Pipeline) -> Result<i32, Sh
             previous_stdout.take().unwrap_or(Stdio::inherit())
         };
 
-        let stdout = if i < pipeline.commands.len() - 1 {
+        let mut stdout = if i < pipeline.commands.len() - 1 {
             Stdio::piped()
-        } else if let Some(output_file) = &command.output {
-            let file = std::fs::File::create(output_file)?;
-            Stdio::from(file)
         } else {
             Stdio::inherit()
         };
+        let mut stderr = Stdio::inherit();
+
+        if let Some(value) = &command.output {
+            let file = std::fs::File::create(value.0.clone())?;
+            if value.1 == 1 {
+                stdout = Stdio::from(file);
+            } else if value.1 == 2 {
+                stderr = Stdio::from(file);
+            }
+        }
 
         let mut child = Command::new(&command.program)
             .args(&command.arguments)
             .stdin(stdin)
             .stdout(stdout)
+            .stderr(stderr)
             .spawn()
             .map_err(|e| {
                 if e.kind() == std::io::ErrorKind::NotFound {

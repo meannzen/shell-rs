@@ -1,22 +1,15 @@
-#[derive(Debug)]
+use thiserror::Error;
+
+#[derive(Debug, Error)]
 pub enum ShellError {
-    Io(std::io::Error),
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Parse error: {0}")]
     ParseError(String),
+    #[error("{0}")]
     CommandNotFound(String),
+    #[error("Permission denied: {0}")]
     PermissionDenied(String),
+    #[error("Internal error: {0}")]
     InternalError(String),
-}
-
-impl std::error::Error for ShellError {}
-
-impl From<std::io::Error> for ShellError {
-    fn from(value: std::io::Error) -> Self {
-        ShellError::Io(value)
-    }
-}
-
-impl std::fmt::Display for ShellError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
 }

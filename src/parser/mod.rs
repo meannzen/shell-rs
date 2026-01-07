@@ -53,7 +53,7 @@ fn parse_command(
 
     let mut arguments: Vec<String> = Vec::new();
     let mut input_file: Option<String> = None;
-    let mut output_file: Option<String> = None;
+    let mut output_file: Option<(String, i32)> = None;
 
     while let Some(token) = tokens_iter.peek() {
         match token {
@@ -68,10 +68,11 @@ fn parse_command(
                     ));
                 }
             }
-            Token::RedirectOut => {
+            Token::RedirectOut(i) => {
+                let x = *i;
                 tokens_iter.next();
                 if let Some(Token::Word(file)) = tokens_iter.next() {
-                    output_file = Some(file);
+                    output_file = Some((file, x));
                 } else {
                     return Err(ShellError::ParseError(
                         "Expected file name after '>'".to_string(),
