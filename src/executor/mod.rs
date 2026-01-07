@@ -22,9 +22,13 @@ pub fn execute_pipeline(shell: &mut Shell, pipeline: Pipeline) -> Result<i32, Sh
 
     let mut previous_stdout: Option<Stdio> = None;
     let mut children = vec![];
+    let num_commands = pipeline.commands.len();
 
     for (i, command) in pipeline.commands.iter().enumerate() {
-        let stdin = if i == 0 {
+        let is_first = i == 0;
+        let is_last = i == num_commands - 1;
+
+        let stdin = if is_first {
             if let Some(input_file) = &command.input {
                 let file = std::fs::File::open(input_file)?;
                 Stdio::from(file)
@@ -35,18 +39,24 @@ pub fn execute_pipeline(shell: &mut Shell, pipeline: Pipeline) -> Result<i32, Sh
             previous_stdout.take().unwrap_or(Stdio::inherit())
         };
 
-        let mut stdout = if i < pipeline.commands.len() - 1 {
+        let mut stdout = if !is_last {
             Stdio::piped()
         } else {
             Stdio::inherit()
         };
         let mut stderr = Stdio::inherit();
 
-        if let Some(value) = &command.output {
-            let file = std::fs::File::create(value.0.clone())?;
-            if value.1 == 1 {
+        for redir in &command.outputs {
+            let file = std::fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .append(redir.append)
+                .truncate(!redir.append)
+                .open(&redir.path)?;
+
+            if redir.fd == 1 {
                 stdout = Stdio::from(file);
-            } else if value.1 == 2 {
+            } else if redir.fd == 2 {
                 stderr = Stdio::from(file);
             }
         }
@@ -65,16 +75,20 @@ pub fn execute_pipeline(shell: &mut Shell, pipeline: Pipeline) -> Result<i32, Sh
                 }
             })?;
 
-        if let Some(stdout) = child.stdout.take() {
-            previous_stdout = Some(Stdio::from(stdout));
+        if let Some(stdout_pipe) = child.stdout.take() {
+            previous_stdout = Some(Stdio::from(stdout_pipe));
         }
 
         children.push(child);
     }
 
-    for mut child in children {
-        child.wait()?;
+    let mut last_status = 0;
+    for (i, mut child) in children.into_iter().enumerate() {
+        let status = child.wait()?;
+        if i == num_commands - 1 {
+            last_status = status.code().unwrap_or(0);
+        }
     }
 
-    Ok(0)
+    Ok(last_status)
 }

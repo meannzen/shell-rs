@@ -7,6 +7,7 @@ pub enum Token {
     Pipe,
     Semicolon,
     RedirectOut(i32),
+    RedirectAppend(i32),
     RedirectIn,
     Background,
 }
@@ -26,14 +27,20 @@ impl Token {
                 let mut lookahead = chars.clone();
                 let identifie: i32 = lookahead.next().unwrap().to_string().parse().unwrap(); // consume the digit
                 if let Some(&next_c) = lookahead.peek() {
-                    if matches!(next_c, '>' | '<') {
-                        chars.next();
-                        let redir_char = chars.next().unwrap();
-                        tokens.push(if redir_char == '>' {
-                            Token::RedirectOut(identifie)
-                        } else {
-                            Token::RedirectIn
-                        });
+                    if next_c == '>' {
+                        chars.next(); // consume digit
+                        chars.next(); // consume '>'
+                        if matches!(chars.peek(), Some(&'>')) {
+                            chars.next(); // consume second '>'
+                            tokens.push(Token::RedirectAppend(identifie));
+                            continue;
+                        }
+                        tokens.push(Token::RedirectOut(identifie));
+                        continue;
+                    } else if next_c == '<' {
+                        chars.next(); // consume digit
+                        chars.next(); // consume '<'
+                        tokens.push(Token::RedirectIn);
                         continue;
                     }
                 }
@@ -50,6 +57,11 @@ impl Token {
                 }
                 '>' => {
                     chars.next();
+                    if matches!(chars.peek(), Some(&'>')) {
+                        chars.next();
+                        tokens.push(Token::RedirectAppend(1));
+                        continue;
+                    }
                     tokens.push(Token::RedirectOut(1));
                 }
                 '<' => {

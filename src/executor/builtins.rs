@@ -1,4 +1,9 @@
-use std::{env, fs::OpenOptions, io::Write};
+use std::{
+    env,
+    fs::OpenOptions,
+    io::{self, Write},
+    str,
+};
 
 use crate::{error::ShellError, parser::ast::Command, shell::Shell};
 
@@ -11,9 +16,9 @@ pub fn is_builtin(program: &str) -> bool {
 pub fn execute_builtin(_shell: &mut Shell, command: &Command) -> Result<i32, ShellError> {
     match command.program.as_str() {
         "exit" => execute_exit(&command.arguments),
-        "echo" => execute_echo(&command),
-        "type" => execute_type(&command),
-        "pwd" => execute_pwd(&command),
+        "echo" => execute_echo(command),
+        "type" => execute_type(command),
+        "pwd" => execute_pwd(command),
         "cd" => execute_cd(&command.arguments),
         _ => Err(ShellError::CommandNotFound(format!(
             "{}: command not found",
@@ -22,60 +27,51 @@ pub fn execute_builtin(_shell: &mut Shell, command: &Command) -> Result<i32, She
     }
 }
 
-fn execute_pwd(command: &Command) -> Result<i32, ShellError> {
-    let current_path = env::current_dir()?;
-    let output = format!("{}", current_path.display());
-
-    if let Some(value) = &command.output {
-        let mut file = OpenOptions::new()
+fn get_command_writer(command: &Command) -> Result<Box<dyn Write>, ShellError> {
+    let mut writer: Box<dyn Write> = Box::new(io::stdout());
+    for redir in &command.outputs {
+        let file = OpenOptions::new()
             .write(true)
             .create(true)
-            .truncate(true)
-            .open(value.0.clone())?;
+            .append(redir.append)
+            .truncate(!redir.append)
+            .open(&redir.path)?;
 
-        if value.1 == 1 {
-            file.write_all(output.as_bytes())?;
-            file.write_all(b"\n")?;
-            return Ok(0);
+        if redir.fd == 1 {
+            writer = Box::new(file);
         }
     }
+    Ok(writer)
+}
 
-    println!("{}", output);
+fn execute_pwd(command: &Command) -> Result<i32, ShellError> {
+    let current_path = env::current_dir()?;
+    let mut writer = get_command_writer(command)?;
+    writeln!(writer, "{}", current_path.display())?;
     Ok(0)
 }
 
 fn execute_cd(args: &[String]) -> Result<i32, ShellError> {
+    let home = std::env::home_dir();
     let new_dir = if args.is_empty() {
-        if let Some(home) = std::env::home_dir() {
-            home
-        } else {
-            return Err(ShellError::InternalError(
-                "cd: no home directory found".to_string(),
-            ));
-        }
+        home.clone()
+            .ok_or_else(|| ShellError::InternalError("cd: no home directory found".to_string()))?
     } else if args.len() != 1 {
         return Err(ShellError::InternalError(
             "cd: too many arguments".to_string(),
         ));
     } else {
         let raw = &args[0];
-
         if raw == "~" {
-            if let Some(home) = std::env::home_dir() {
-                home
-            } else {
-                return Err(ShellError::InternalError(
-                    "cd: no home directory found".to_string(),
-                ));
-            }
+            home.clone().ok_or_else(|| {
+                ShellError::InternalError("cd: no home directory found".to_string())
+            })?
         } else if let Some(stripped) = raw.strip_prefix("~/") {
-            if let Some(home) = std::env::home_dir() {
-                home.join(stripped)
-            } else {
-                return Err(ShellError::InternalError(
-                    "cd: no home directory found".to_string(),
-                ));
-            }
+            home.clone()
+                .ok_or_else(|| {
+                    ShellError::InternalError("cd: no home directory found".to_string())
+                })?
+                .join(stripped)
         } else {
             std::path::PathBuf::from(raw)
         }
@@ -84,10 +80,10 @@ fn execute_cd(args: &[String]) -> Result<i32, ShellError> {
     if std::env::set_current_dir(&new_dir).is_ok() {
         Ok(0)
     } else {
-        let display = if new_dir == std::env::home_dir().unwrap_or_default() {
+        let display = if Some(&new_dir) == home.as_ref() {
             "~".to_string()
-        } else if let Some(home) = std::env::home_dir() {
-            if let Ok(rel) = new_dir.strip_prefix(&home) {
+        } else if let Some(h) = home {
+            if let Ok(rel) = new_dir.strip_prefix(&h) {
                 format!("~{}", rel.display())
             } else {
                 new_dir.display().to_string()
@@ -113,31 +109,12 @@ fn execute_exit(args: &[String]) -> Result<i32, ShellError> {
 }
 
 fn execute_echo(command: &Command) -> Result<i32, ShellError> {
-    if command.arguments.is_empty() {
-        println!();
-        return Ok(0);
-    }
-
-    if let Some(value) = &command.output {
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(value.0.clone())?;
-
-        if value.1 == 1 {
-            let buff = command.arguments.join(" ");
-            file.write_all(buff.as_bytes())?;
-            file.write_all(b"\n")?;
-            return Ok(0);
-        }
-    }
-
+    let mut writer = get_command_writer(command)?;
     let output = command.arguments.join(" ");
-    println!("{}", output);
-
+    writeln!(writer, "{}", output)?;
     Ok(0)
 }
+
 fn execute_type(command: &Command) -> Result<i32, ShellError> {
     let args = &command.arguments;
     if args.is_empty() {
@@ -147,8 +124,10 @@ fn execute_type(command: &Command) -> Result<i32, ShellError> {
     }
 
     let program = &args[0];
-    let output_msg = if is_builtin(program) {
-        format!("{} is a shell builtin", program)
+    let mut writer = get_command_writer(command)?;
+
+    if is_builtin(program) {
+        writeln!(writer, "{} is a shell builtin", program)?;
     } else {
         let output = std::process::Command::new("which")
             .arg(program)
@@ -165,30 +144,11 @@ fn execute_type(command: &Command) -> Result<i32, ShellError> {
         let stdout_str = str::from_utf8(&output.stdout)
             .map_err(|_| ShellError::InternalError("Not valid UTF-8".to_string()))?;
 
-        format!("{} is {}", program, stdout_str)
+        write!(writer, "{} is {}", program, stdout_str)?;
+        if !stdout_str.ends_with('\n') {
+            writeln!(writer)?;
+        }
     };
 
-    if let Some(value) = &command.output {
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(value.0.clone())?;
-
-        if value.1 == 1 {
-            file.write_all(output_msg.as_bytes())?;
-            // only add newline if it doesn't end with one (which is mostly for the external case)
-            if !output_msg.ends_with('\n') {
-                file.write_all(b"\n")?;
-            }
-            return Ok(0);
-        }
-    }
-
-    if output_msg.ends_with('\n') {
-        print!("{}", output_msg);
-    } else {
-        println!("{}", output_msg);
-    }
     Ok(0)
 }

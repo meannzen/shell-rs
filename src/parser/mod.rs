@@ -1,7 +1,7 @@
 use crate::{
     error::ShellError,
     parser::{
-        ast::{Command, Pipeline},
+        ast::{Command, Pipeline, Redirection},
         lexer::Token,
     },
 };
@@ -53,7 +53,7 @@ fn parse_command(
 
     let mut arguments: Vec<String> = Vec::new();
     let mut input_file: Option<String> = None;
-    let mut output_file: Option<(String, i32)> = None;
+    let mut output_redirections: Vec<Redirection> = Vec::new();
 
     while let Some(token) = tokens_iter.peek() {
         match token {
@@ -68,14 +68,33 @@ fn parse_command(
                     ));
                 }
             }
-            Token::RedirectOut(i) => {
-                let x = *i;
+            Token::RedirectOut(fd) => {
+                let fd = *fd;
                 tokens_iter.next();
                 if let Some(Token::Word(file)) = tokens_iter.next() {
-                    output_file = Some((file, x));
+                    output_redirections.push(Redirection {
+                        path: file,
+                        fd,
+                        append: false,
+                    });
                 } else {
                     return Err(ShellError::ParseError(
                         "Expected file name after '>'".to_string(),
+                    ));
+                }
+            }
+            Token::RedirectAppend(fd) => {
+                let fd = *fd;
+                tokens_iter.next();
+                if let Some(Token::Word(file)) = tokens_iter.next() {
+                    output_redirections.push(Redirection {
+                        path: file,
+                        fd,
+                        append: true,
+                    });
+                } else {
+                    return Err(ShellError::ParseError(
+                        "Expected file name after '>>'".to_string(),
                     ));
                 }
             }
@@ -90,6 +109,6 @@ fn parse_command(
         program,
         arguments,
         input: input_file,
-        output: output_file,
+        outputs: output_redirections,
     })
 }
