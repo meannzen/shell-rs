@@ -1,22 +1,26 @@
+use rustyline::{
+    Cmd, Config, Editor, KeyEvent, completion::FilenameCompleter, history::DefaultHistory,
+};
+
 use crate::{
+    completer::MyHelper,
     error::ShellError,
     executor::execute_pipeline,
     parser::{ast::Pipeline, lexer::Token, parse_tokens},
 };
-use std::{
-    collections::HashMap,
-    io::{BufRead, Write},
-};
+use std::collections::HashMap;
 
 #[derive(Debug, Default)]
 pub struct Shell {
     pub environment_var: HashMap<String, String>,
+    config: Config,
 }
 
 impl Shell {
-    pub fn new() -> Self {
+    pub fn new(config: Config) -> Self {
         Shell {
             environment_var: HashMap::new(),
+            config,
         }
     }
 
@@ -46,21 +50,22 @@ impl Shell {
     }
 
     pub fn run(&mut self) {
-        let mut reader = std::io::stdin().lock();
-        let mut line = String::new();
+        let mut rl: Editor<MyHelper, DefaultHistory> =
+            Editor::with_config(self.config.clone()).unwrap();
+
+        let h = MyHelper {
+            file_completer: FilenameCompleter::new(),
+            commands: vec!["echo ".to_string(), "exit ".to_string()],
+        };
+
+        rl.set_helper(Some(h));
+
+        rl.bind_sequence(KeyEvent::from('\t'), Cmd::Complete);
 
         loop {
-            eprint!("$ ");
-            let _ = std::io::stderr().flush();
-
-            line.clear();
-
-            match reader.read_line(&mut line) {
-                Ok(0) => {
-                    println!("Exiting shell...");
-                    break;
-                }
-                Ok(_) => {
+            let readline = rl.readline("$ ");
+            match readline {
+                Ok(line) => {
                     let input = line.trim();
                     if input.is_empty() {
                         continue;
