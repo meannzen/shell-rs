@@ -13,25 +13,41 @@ impl Completer for MyHelper {
         &self,
         line: &str,
         pos: usize,
-        ctx: &Context<'_>,
+        _ctx: &Context<'_>,
     ) -> rustyline::Result<(usize, Vec<Pair>)> {
-        let mut entries: Vec<Pair> = self
-            .commands
-            .iter()
-            .filter(|cmd| cmd.starts_with(line))
-            .map(|cmd| Pair {
-                display: cmd.to_string(),
-                replacement: cmd.to_string(),
-            })
-            .collect();
+        let word_start = line[..pos]
+            .rfind(char::is_whitespace)
+            .map(|i| i + 1)
+            .unwrap_or(0);
 
-        let (_, file_entries) = self.file_completer.complete(line, pos, ctx)?;
-        entries.extend(file_entries);
+        let being_completed = &line[word_start..pos];
 
-        Ok((0, entries))
+        if word_start == 0 && !being_completed.is_empty() {
+            let mut candidates = Vec::new();
+
+            for cmd in &self.commands {
+                if cmd.starts_with(being_completed) {
+                    let completion = if cmd.contains(' ') {
+                        format!("'{}' ", cmd)
+                    } else {
+                        format!("{} ", cmd)
+                    };
+
+                    candidates.push(Pair {
+                        display: cmd.clone(),
+                        replacement: completion,
+                    });
+                }
+            }
+
+            if !candidates.is_empty() {
+                return Ok((word_start, candidates));
+            }
+        }
+
+        self.file_completer.complete(line, pos, _ctx)
     }
 }
-
 impl rustyline::hint::Hinter for MyHelper {
     type Hint = String;
 }
