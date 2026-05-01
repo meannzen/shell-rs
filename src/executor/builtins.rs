@@ -7,7 +7,7 @@ use std::{
 
 use crate::{error::ShellError, parser::ast::Command, shell::Shell};
 
-const BUILTINS: &[&str] = &["exit", "echo", "type", "pwd", "cd"];
+const BUILTINS: &[&str] = &["exit", "echo", "type", "pwd", "cd", "history"];
 
 pub fn is_builtin(program: &str) -> bool {
     BUILTINS.contains(&program)
@@ -24,6 +24,9 @@ pub fn execute_builtin(
         "type" => execute_type(command, stdout_override),
         "pwd" => execute_pwd(command, stdout_override),
         "cd" => execute_cd(&command.arguments),
+        "history" => {
+            todo!()
+        }
         _ => Err(ShellError::CommandNotFound(format!(
             "{}: command not found",
             command.program
@@ -51,7 +54,10 @@ fn get_command_writer(
     Ok(writer)
 }
 
-fn execute_pwd(command: &Command, stdout_override: Option<Box<dyn Write>>) -> Result<i32, ShellError> {
+fn execute_pwd(
+    command: &Command,
+    stdout_override: Option<Box<dyn Write>>,
+) -> Result<i32, ShellError> {
     let current_path = env::current_dir()?;
     let mut writer = get_command_writer(command, stdout_override)?;
     writeln!(writer, "{}", current_path.display())?;
@@ -115,14 +121,20 @@ fn execute_exit(args: &[String]) -> Result<i32, ShellError> {
     std::process::exit(exit_code);
 }
 
-fn execute_echo(command: &Command, stdout_override: Option<Box<dyn Write>>) -> Result<i32, ShellError> {
+fn execute_echo(
+    command: &Command,
+    stdout_override: Option<Box<dyn Write>>,
+) -> Result<i32, ShellError> {
     let mut writer = get_command_writer(command, stdout_override)?;
     let output = command.arguments.join(" ");
     writeln!(writer, "{}", output)?;
     Ok(0)
 }
 
-fn execute_type(command: &Command, stdout_override: Option<Box<dyn Write>>) -> Result<i32, ShellError> {
+fn execute_type(
+    command: &Command,
+    stdout_override: Option<Box<dyn Write>>,
+) -> Result<i32, ShellError> {
     let args = &command.arguments;
     if args.is_empty() {
         return Err(ShellError::InternalError(
