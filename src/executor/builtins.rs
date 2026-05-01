@@ -13,12 +13,16 @@ pub fn is_builtin(program: &str) -> bool {
     BUILTINS.contains(&program)
 }
 
-pub fn execute_builtin(_shell: &mut Shell, command: &Command) -> Result<i32, ShellError> {
+pub fn execute_builtin(
+    _shell: &mut Shell,
+    command: &Command,
+    stdout_override: Option<Box<dyn Write>>,
+) -> Result<i32, ShellError> {
     match command.program.as_str() {
         "exit" => execute_exit(&command.arguments),
-        "echo" => execute_echo(command),
-        "type" => execute_type(command),
-        "pwd" => execute_pwd(command),
+        "echo" => execute_echo(command, stdout_override),
+        "type" => execute_type(command, stdout_override),
+        "pwd" => execute_pwd(command, stdout_override),
         "cd" => execute_cd(&command.arguments),
         _ => Err(ShellError::CommandNotFound(format!(
             "{}: command not found",
@@ -27,8 +31,11 @@ pub fn execute_builtin(_shell: &mut Shell, command: &Command) -> Result<i32, She
     }
 }
 
-fn get_command_writer(command: &Command) -> Result<Box<dyn Write>, ShellError> {
-    let mut writer: Box<dyn Write> = Box::new(io::stdout());
+fn get_command_writer(
+    command: &Command,
+    stdout_override: Option<Box<dyn Write>>,
+) -> Result<Box<dyn Write>, ShellError> {
+    let mut writer: Box<dyn Write> = stdout_override.unwrap_or_else(|| Box::new(io::stdout()));
     for redir in &command.outputs {
         let file = OpenOptions::new()
             .write(true)
@@ -44,9 +51,9 @@ fn get_command_writer(command: &Command) -> Result<Box<dyn Write>, ShellError> {
     Ok(writer)
 }
 
-fn execute_pwd(command: &Command) -> Result<i32, ShellError> {
+fn execute_pwd(command: &Command, stdout_override: Option<Box<dyn Write>>) -> Result<i32, ShellError> {
     let current_path = env::current_dir()?;
-    let mut writer = get_command_writer(command)?;
+    let mut writer = get_command_writer(command, stdout_override)?;
     writeln!(writer, "{}", current_path.display())?;
     Ok(0)
 }
@@ -108,14 +115,14 @@ fn execute_exit(args: &[String]) -> Result<i32, ShellError> {
     std::process::exit(exit_code);
 }
 
-fn execute_echo(command: &Command) -> Result<i32, ShellError> {
-    let mut writer = get_command_writer(command)?;
+fn execute_echo(command: &Command, stdout_override: Option<Box<dyn Write>>) -> Result<i32, ShellError> {
+    let mut writer = get_command_writer(command, stdout_override)?;
     let output = command.arguments.join(" ");
     writeln!(writer, "{}", output)?;
     Ok(0)
 }
 
-fn execute_type(command: &Command) -> Result<i32, ShellError> {
+fn execute_type(command: &Command, stdout_override: Option<Box<dyn Write>>) -> Result<i32, ShellError> {
     let args = &command.arguments;
     if args.is_empty() {
         return Err(ShellError::InternalError(
@@ -124,7 +131,7 @@ fn execute_type(command: &Command) -> Result<i32, ShellError> {
     }
 
     let program = &args[0];
-    let mut writer = get_command_writer(command)?;
+    let mut writer = get_command_writer(command, stdout_override)?;
 
     if is_builtin(program) {
         writeln!(writer, "{} is a shell builtin", program)?;

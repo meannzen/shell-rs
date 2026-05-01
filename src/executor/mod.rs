@@ -6,7 +6,10 @@ use crate::{
     parser::ast::Pipeline,
     shell::Shell,
 };
-use std::process::{Command, Stdio};
+use std::{
+    io,
+    process::{Command, Stdio},
+};
 
 pub fn execute_pipeline(shell: &mut Shell, pipeline: Pipeline) -> Result<i32, ShellError> {
     if pipeline.commands.is_empty() {
@@ -16,13 +19,14 @@ pub fn execute_pipeline(shell: &mut Shell, pipeline: Pipeline) -> Result<i32, Sh
     if pipeline.commands.len() == 1 {
         let command = &pipeline.commands[0];
         if is_builtin(&command.program) {
-            return execute_builtin(shell, command);
+            return execute_builtin(shell, command, None);
         }
     }
 
     let mut previous_stdout: Option<Stdio> = None;
     let mut children = vec![];
     let num_commands = pipeline.commands.len();
+    let mut last_builtin_status: Option<i32> = None;
 
     for (i, command) in pipeline.commands.iter().enumerate() {
         let is_first = i == 0;
@@ -38,6 +42,18 @@ pub fn execute_pipeline(shell: &mut Shell, pipeline: Pipeline) -> Result<i32, Sh
         } else {
             previous_stdout.take().unwrap_or(Stdio::inherit())
         };
+
+        if is_builtin(&command.program) {
+            drop(stdin);
+            if is_last {
+                last_builtin_status = Some(execute_builtin(shell, command, None)?);
+            } else {
+                let (reader, writer) = io::pipe()?;
+                execute_builtin(shell, command, Some(Box::new(writer)))?;
+                previous_stdout = Some(Stdio::from(reader));
+            }
+            continue;
+        }
 
         let mut stdout = if !is_last {
             Stdio::piped()
@@ -82,13 +98,14 @@ pub fn execute_pipeline(shell: &mut Shell, pipeline: Pipeline) -> Result<i32, Sh
         children.push(child);
     }
 
-    let mut last_status = 0;
+    let mut last_ext_status = 0;
+    let num_children = children.len();
     for (i, mut child) in children.into_iter().enumerate() {
         let status = child.wait()?;
-        if i == num_commands - 1 {
-            last_status = status.code().unwrap_or(0);
+        if i + 1 == num_children {
+            last_ext_status = status.code().unwrap_or(0);
         }
     }
 
-    Ok(last_status)
+    Ok(last_builtin_status.unwrap_or(last_ext_status))
 }
