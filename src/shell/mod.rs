@@ -36,12 +36,13 @@ impl Shell {
             .map(util::read_history)
             .unwrap_or_default();
 
+        let history_append_index = histories.len();
         let mut shell = Shell {
             environment_var: HashMap::new(),
             config,
             command_names: Vec::new(),
             histories,
-            history_append_index: 0,
+            history_append_index,
             file_history_path,
         };
 
