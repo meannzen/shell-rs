@@ -1,11 +1,11 @@
 use std::{
     env,
-    fs::{File, OpenOptions},
-    io::{self, BufRead, BufReader, Read, Seek, Write},
+    fs::OpenOptions,
+    io::{self, Write},
     str,
 };
 
-use crate::{error::ShellError, parser::ast::Command, shell::Shell};
+use crate::{error::ShellError, parser::ast::Command, shell::Shell, util};
 
 const BUILTINS: &[&str] = &["exit", "echo", "type", "pwd", "cd", "history"];
 
@@ -19,7 +19,7 @@ pub fn execute_builtin(
     stdout_override: Option<Box<dyn Write>>,
 ) -> Result<i32, ShellError> {
     match command.program.as_str() {
-        "exit" => execute_exit(&command.arguments),
+        "exit" => execute_exit(shell, &command.arguments),
         "echo" => execute_echo(command, stdout_override),
         "type" => execute_type(command, stdout_override),
         "pwd" => execute_pwd(command, stdout_override),
@@ -64,66 +64,24 @@ fn execute_history(
     match first_arg {
         "-r" => {
             if let Some(path) = command.arguments.get(1) {
-                let file = File::open(path)?;
-                let reader = BufReader::new(file);
-                for line in reader.lines().map_while(Result::ok) {
-                    shell.histories.push(line);
-                }
+                let lines = util::read_history(path);
+                shell.histories.extend(lines);
                 shell.history_append_index = shell.histories.len();
             }
             return Ok(0);
         }
         "-w" => {
             if let Some(path) = command.arguments.get(1) {
-                let mut file = OpenOptions::new()
-                    .write(true)
-                    .truncate(true)
-                    .create(true)
-                    .open(path)?;
-
-                for line in &shell.histories {
-                    writeln!(file, "{}", line)?;
-                }
-
+                util::write_history(path, &shell.histories)?;
                 return Ok(0);
             }
             return Ok(1);
         }
         "-a" => {
             if let Some(path) = command.arguments.get(1) {
-                let write_start = match File::open(path) {
-                    Ok(mut f) => {
-                        let file_len = f.seek(io::SeekFrom::End(0)).unwrap_or(0);
-                        if file_len >= 2 {
-                            let _ = f.seek(io::SeekFrom::End(-2));
-                            let mut buf = [0u8; 2];
-                            if f.read_exact(&mut buf).is_ok() && buf == [b'\n', b'\n'] {
-                                file_len - 1
-                            } else {
-                                file_len
-                            }
-                        } else {
-                            file_len
-                        }
-                    }
-                    Err(_) => 0,
-                };
-
-                let mut file = OpenOptions::new()
-                    .write(true)
-                    .create(true)
-                    .truncate(false)
-                    .open(path)?;
-
-                file.seek(io::SeekFrom::Start(write_start))?;
-
-                let start_idx = shell.history_append_index;
-                for line in shell.histories.iter().skip(start_idx) {
-                    writeln!(file, "{}", line)?;
-                }
-
-                shell.history_append_index = shell.histories.len();
-
+                let new_index =
+                    util::append_history(path, &shell.histories, shell.history_append_index)?;
+                shell.history_append_index = new_index;
                 return Ok(0);
             }
             return Ok(1);
@@ -207,11 +165,15 @@ fn execute_cd(args: &[String]) -> Result<i32, ShellError> {
     }
 }
 
-fn execute_exit(args: &[String]) -> Result<i32, ShellError> {
+fn execute_exit(shell: &Shell, args: &[String]) -> Result<i32, ShellError> {
     let exit_code = args
         .first()
         .and_then(|s| s.parse::<i32>().ok())
         .unwrap_or(0);
+
+    if let Some(path) = &shell.file_history_path {
+        let _ = util::append_history(path, &shell.histories, shell.history_append_index);
+    }
 
     std::process::exit(exit_code);
 }

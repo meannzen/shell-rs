@@ -5,17 +5,14 @@ use rustyline::{
 
 #[cfg(unix)]
 use std::path::Path;
-use std::{
-    collections::HashSet,
-    env,
-    io::{BufRead, BufReader},
-};
+use std::{collections::HashSet, env};
 
 use crate::{
     completer::MyHelper,
     error::ShellError,
     executor::execute_pipeline,
     parser::{ast::Pipeline, lexer::Token, parse_tokens},
+    util,
 };
 use std::{
     collections::HashMap,
@@ -34,15 +31,10 @@ pub struct Shell {
 
 impl Shell {
     pub fn build(config: Config, file_history_path: Option<String>) -> Self {
-        let mut histories = Vec::new();
-        if let Some(path) = &file_history_path
-            && let Ok(file) = std::fs::File::open(path)
-        {
-            let reader = BufReader::new(file);
-            for line in reader.lines().map_while(|x| x.ok()) {
-                histories.push(line);
-            }
-        }
+        let histories = file_history_path
+            .as_deref()
+            .map(util::read_history)
+            .unwrap_or_default();
 
         let mut shell = Shell {
             environment_var: HashMap::new(),
