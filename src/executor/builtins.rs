@@ -1,7 +1,7 @@
 use std::{
     env,
-    fs::OpenOptions,
-    io::{self, Write},
+    fs::{File, OpenOptions},
+    io::{self, BufRead, BufReader, Write},
     str,
 };
 
@@ -58,23 +58,28 @@ fn execute_history(
     stdout_override: Option<Box<dyn Write>>,
 ) -> Result<i32, ShellError> {
     let mut writer = get_command_writer(command, stdout_override)?;
+    let binding = String::from("0");
+    let first_arg = command.arguments.get(0).unwrap_or(&binding).as_str();
 
-    let some_n = match command.arguments.len() {
-        0 => None,
-        _ => {
-            let n: usize = match command.arguments[0].parse() {
-                Ok(n) => n,
-                Err(_) => {
-                    eprintln!("event not found: {}", command.arguments[0]);
-                    return Ok(1);
+    match first_arg {
+        "-r" => {
+            if let Some(path) = command.arguments.get(1) {
+                let file = File::open(path)?;
+                let reader = BufReader::new(file);
+                for line in reader.lines() {
+                    if let Ok(line) = line {
+                        shell.histories.push(line);
+                    }
                 }
-            };
-
-            Some(n)
+            }
+            return Ok(0);
         }
-    };
+        _ => {}
+    }
 
-    if let Some(n) = some_n
+    let some_n = first_arg.parse();
+
+    if let Ok(n) = some_n
         && n > 0
         && n < shell.histories.len()
     {
