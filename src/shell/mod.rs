@@ -22,6 +22,7 @@ pub struct Shell {
     pub environment_var: HashMap<String, String>,
     config: Config,
     pub command_names: Vec<String>,
+    pub histories: Vec<String>,
 }
 
 impl Shell {
@@ -30,6 +31,7 @@ impl Shell {
             environment_var: HashMap::new(),
             config,
             command_names: Vec::new(),
+            histories: Vec::new(),
         };
 
         shell.command_names = shell.collect_command_names();
@@ -121,6 +123,8 @@ impl Shell {
                     if input.is_empty() {
                         continue;
                     }
+
+                    self.histories.push(line.clone());
 
                     match self.parse_input(input) {
                         Ok(pipelines) => {

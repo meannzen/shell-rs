@@ -14,7 +14,7 @@ pub fn is_builtin(program: &str) -> bool {
 }
 
 pub fn execute_builtin(
-    _shell: &mut Shell,
+    shell: &mut Shell,
     command: &Command,
     stdout_override: Option<Box<dyn Write>>,
 ) -> Result<i32, ShellError> {
@@ -24,9 +24,7 @@ pub fn execute_builtin(
         "type" => execute_type(command, stdout_override),
         "pwd" => execute_pwd(command, stdout_override),
         "cd" => execute_cd(&command.arguments),
-        "history" => {
-            todo!()
-        }
+        "history" => execute_history(shell, command, stdout_override),
         _ => Err(ShellError::CommandNotFound(format!(
             "{}: command not found",
             command.program
@@ -52,6 +50,18 @@ fn get_command_writer(
         }
     }
     Ok(writer)
+}
+
+fn execute_history(
+    shell: &mut Shell,
+    command: &Command,
+    stdout_override: Option<Box<dyn Write>>,
+) -> Result<i32, ShellError> {
+    let mut writer = get_command_writer(command, stdout_override)?;
+    for (i, history) in shell.histories.iter().enumerate() {
+        writeln!(writer, "{} {}", i + 1, history)?;
+    }
+    Ok(0)
 }
 
 fn execute_pwd(
