@@ -1,5 +1,6 @@
 use rustyline::{
-    Cmd, Config, Editor, KeyEvent, completion::FilenameCompleter, history::DefaultHistory,
+    Cmd, Config, Editor, KeyEvent, completion::FilenameCompleter, config::Configurer,
+    history::DefaultHistory,
 };
 
 #[cfg(unix)]
@@ -114,6 +115,7 @@ impl Shell {
         rl.set_helper(Some(h));
 
         rl.bind_sequence(KeyEvent::from('\t'), Cmd::Complete);
+        rl.set_auto_add_history(true);
 
         loop {
             let readline = rl.readline("$ ");
