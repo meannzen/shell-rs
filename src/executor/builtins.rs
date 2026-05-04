@@ -58,8 +58,34 @@ fn execute_history(
     stdout_override: Option<Box<dyn Write>>,
 ) -> Result<i32, ShellError> {
     let mut writer = get_command_writer(command, stdout_override)?;
-    for (i, history) in shell.histories.iter().enumerate() {
-        writeln!(writer, "{} {}", i + 1, history)?;
+
+    let some_n = match command.arguments.len() {
+        0 => None,
+        _ => {
+            let n: usize = match command.arguments[0].parse() {
+                Ok(n) => n,
+                Err(_) => {
+                    eprintln!("event not found: {}", command.arguments[0]);
+                    return Ok(1);
+                }
+            };
+
+            Some(n)
+        }
+    };
+
+    if let Some(n) = some_n
+        && n > 0
+        && n < shell.histories.len()
+    {
+        let historis: Vec<_> = shell.histories.iter().rev().take(n).collect();
+        for (i, history) in historis.iter().rev().enumerate() {
+            writeln!(writer, "{} {}", (shell.histories.len() + i) - n, history)?;
+        }
+    } else {
+        for (i, history) in shell.histories.iter().enumerate() {
+            writeln!(writer, "{} {}", i + 1, history)?;
+        }
     }
     Ok(0)
 }
