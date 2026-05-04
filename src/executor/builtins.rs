@@ -1,7 +1,7 @@
 use std::{
     env,
     fs::{File, OpenOptions},
-    io::{self, BufRead, BufReader, Write},
+    io::{self, BufRead, BufReader, Read, Seek, Write},
     str,
 };
 
@@ -59,37 +59,74 @@ fn execute_history(
 ) -> Result<i32, ShellError> {
     let mut writer = get_command_writer(command, stdout_override)?;
     let binding = String::from("0");
-    let first_arg = command.arguments.get(0).unwrap_or(&binding).as_str();
+    let first_arg = command.arguments.first().unwrap_or(&binding).as_str();
 
     match first_arg {
         "-r" => {
             if let Some(path) = command.arguments.get(1) {
                 let file = File::open(path)?;
                 let reader = BufReader::new(file);
-                for line in reader.lines() {
-                    if let Ok(line) = line {
-                        shell.histories.push(line);
-                    }
+                for line in reader.lines().map_while(Result::ok) {
+                    shell.histories.push(line);
                 }
+                shell.history_append_index = shell.histories.len();
             }
             return Ok(0);
         }
-        "-w" | "-a" => {
+        "-w" => {
             if let Some(path) = command.arguments.get(1) {
-                let append = first_arg == "-a";
                 let mut file = OpenOptions::new()
-                    .write(!append)
-                    .append(append)
+                    .write(true)
+                    .truncate(true)
                     .create(true)
                     .open(path)?;
-                for line in shell.histories.iter() {
+
+                for line in &shell.histories {
                     writeln!(file, "{}", line)?;
                 }
 
-                file.flush()?;
+                return Ok(0);
+            }
+            return Ok(1);
+        }
+        "-a" => {
+            if let Some(path) = command.arguments.get(1) {
+                let write_start = match File::open(path) {
+                    Ok(mut f) => {
+                        let file_len = f.seek(io::SeekFrom::End(0)).unwrap_or(0);
+                        if file_len >= 2 {
+                            let _ = f.seek(io::SeekFrom::End(-2));
+                            let mut buf = [0u8; 2];
+                            if f.read_exact(&mut buf).is_ok() && buf == [b'\n', b'\n'] {
+                                file_len - 1
+                            } else {
+                                file_len
+                            }
+                        } else {
+                            file_len
+                        }
+                    }
+                    Err(_) => 0,
+                };
+
+                let mut file = OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(false)
+                    .open(path)?;
+
+                file.seek(io::SeekFrom::Start(write_start))?;
+
+                let start_idx = shell.history_append_index;
+                for line in shell.histories.iter().skip(start_idx) {
+                    writeln!(file, "{}", line)?;
+                }
+
+                shell.history_append_index = shell.histories.len();
 
                 return Ok(0);
             }
+            return Ok(1);
         }
         _ => {}
     }

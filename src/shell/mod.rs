@@ -24,6 +24,7 @@ pub struct Shell {
     config: Config,
     pub command_names: Vec<String>,
     pub histories: Vec<String>,
+    pub history_append_index: usize,
 }
 
 impl Shell {
@@ -33,6 +34,7 @@ impl Shell {
             config,
             command_names: Vec::new(),
             histories: Vec::new(),
+            history_append_index: 0,
         };
 
         shell.command_names = shell.collect_command_names();
