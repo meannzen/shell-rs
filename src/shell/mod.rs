@@ -27,6 +27,7 @@ pub struct Shell {
     pub histories: Vec<String>,
     pub history_append_index: usize,
     pub file_history_path: Option<String>,
+    pub completions: HashMap<String, String>,
 }
 
 impl Shell {
@@ -44,6 +45,7 @@ impl Shell {
             histories,
             history_append_index,
             file_history_path,
+            completions: HashMap::new(),
         };
 
         shell.command_names = shell.collect_command_names();

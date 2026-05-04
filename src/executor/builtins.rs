@@ -25,14 +25,44 @@ pub fn execute_builtin(
         "pwd" => execute_pwd(command, stdout_override),
         "cd" => execute_cd(&command.arguments),
         "history" => execute_history(shell, command, stdout_override),
-        "complete" => {
-            todo!()
-        }
+        "complete" => execute_complete(shell, command, stdout_override),
         _ => Err(ShellError::CommandNotFound(format!(
             "{}: command not found",
             command.program
         ))),
     }
+}
+
+fn execute_complete(
+    shell: &mut Shell,
+    command: &Command,
+    stdout_override: Option<Box<dyn Write>>,
+) -> Result<i32, ShellError> {
+    let mut writer = get_command_writer(command, stdout_override)?;
+    if let Some(first) = command.arguments.first() {
+        match first.as_str() {
+            "-p" => {
+                if let Some(two) = command.arguments.get(1) {
+                    if let Some(path) = shell.completions.get(two) {
+                        writeln!(writer, "complete -C '{}' {}", path, two)?;
+                    } else {
+                        writeln!(writer, "complete: {}: no completion specification", two)?;
+                    }
+                }
+            }
+            "-C" => {
+                if let Some(two) = command.arguments.get(1)
+                    && let Some(third) = command.arguments.get(2)
+                {
+                    shell.completions.insert(third.clone(), two.clone());
+                }
+            }
+            _ => {
+                todo!()
+            }
+        }
+    }
+    Ok(1)
 }
 
 fn get_command_writer(
