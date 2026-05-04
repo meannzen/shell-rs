@@ -74,6 +74,23 @@ fn execute_history(
             }
             return Ok(0);
         }
+        "-w" | "-a" => {
+            if let Some(path) = command.arguments.get(1) {
+                let append = first_arg == "-a";
+                let mut file = OpenOptions::new()
+                    .write(!append)
+                    .append(append)
+                    .create(true)
+                    .open(path)?;
+                for line in shell.histories.iter() {
+                    writeln!(file, "{}", line)?;
+                }
+
+                file.flush()?;
+
+                return Ok(0);
+            }
+        }
         _ => {}
     }
 
