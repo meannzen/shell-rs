@@ -5,7 +5,11 @@ use rustyline::{
 
 #[cfg(unix)]
 use std::path::Path;
-use std::{collections::HashSet, env};
+use std::{
+    collections::HashSet,
+    env,
+    io::{BufRead, BufReader},
+};
 
 use crate::{
     completer::MyHelper,
@@ -25,16 +29,28 @@ pub struct Shell {
     pub command_names: Vec<String>,
     pub histories: Vec<String>,
     pub history_append_index: usize,
+    pub file_history_path: Option<String>,
 }
 
 impl Shell {
-    pub fn new(config: Config) -> Self {
+    pub fn build(config: Config, file_history_path: Option<String>) -> Self {
+        let mut histories = Vec::new();
+        if let Some(path) = &file_history_path
+            && let Ok(file) = std::fs::File::open(path)
+        {
+            let reader = BufReader::new(file);
+            for line in reader.lines().map_while(|x| x.ok()) {
+                histories.push(line);
+            }
+        }
+
         let mut shell = Shell {
             environment_var: HashMap::new(),
             config,
             command_names: Vec::new(),
-            histories: Vec::new(),
+            histories,
             history_append_index: 0,
+            file_history_path,
         };
 
         shell.command_names = shell.collect_command_names();

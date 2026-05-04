@@ -1,3 +1,5 @@
+use std::env;
+
 use codecrafters_shell::{error::ShellError, shell::Shell};
 use rustyline::Config;
 
@@ -6,8 +8,9 @@ fn main() -> Result<(), ShellError> {
         .completion_type(rustyline::CompletionType::List)
         .build();
 
-    let mut shell = Shell::new(config);
-    shell.run();
+    let file_path = env::var("HISTFILE").ok();
+
+    Shell::build(config, file_path).run();
 
     Ok(())
 }
