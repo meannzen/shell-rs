@@ -43,7 +43,8 @@ fn execute_complete(
         match first.as_str() {
             "-p" => {
                 if let Some(two) = command.arguments.get(1) {
-                    if let Some(path) = shell.completions.get(two) {
+                    let completions_regitry = shell.completions_regitry.lock().unwrap();
+                    if let Some(path) = completions_regitry.get(two) {
                         writeln!(writer, "complete -C '{}' {}", path, two)?;
                     } else {
                         writeln!(writer, "complete: {}: no completion specification", two)?;
@@ -54,7 +55,8 @@ fn execute_complete(
                 if let Some(two) = command.arguments.get(1)
                     && let Some(third) = command.arguments.get(2)
                 {
-                    shell.completions.insert(third.clone(), two.clone());
+                    let mut completions_regitry = shell.completions_regitry.lock().unwrap();
+                    completions_regitry.insert(third.clone(), two.clone());
                 }
             }
             _ => {

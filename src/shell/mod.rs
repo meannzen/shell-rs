@@ -5,7 +5,11 @@ use rustyline::{
 
 #[cfg(unix)]
 use std::path::Path;
-use std::{collections::HashSet, env};
+use std::{
+    collections::HashSet,
+    env,
+    sync::{Arc, Mutex},
+};
 
 use crate::{
     completer::MyHelper,
@@ -27,7 +31,7 @@ pub struct Shell {
     pub histories: Vec<String>,
     pub history_append_index: usize,
     pub file_history_path: Option<String>,
-    pub completions: HashMap<String, String>,
+    pub completions_regitry: Arc<Mutex<HashMap<String, String>>>,
 }
 
 impl Shell {
@@ -45,7 +49,7 @@ impl Shell {
             histories,
             history_append_index,
             file_history_path,
-            completions: HashMap::new(),
+            completions_regitry: Arc::new(Mutex::new(HashMap::new())),
         };
 
         shell.command_names = shell.collect_command_names();
@@ -119,10 +123,11 @@ impl Shell {
     pub fn run(&mut self) {
         let mut rl: Editor<MyHelper, DefaultHistory> =
             Editor::with_config(self.config.clone()).unwrap();
-
+        let registry = self.completions_regitry.clone();
         let h = MyHelper {
             file_completer: FilenameCompleter::new(),
             commands: self.command_names.clone(),
+            registry,
         };
 
         rl.set_helper(Some(h));
