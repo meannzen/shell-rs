@@ -53,6 +53,8 @@ impl Completer for MyHelper {
                 .arg(cmd_name)
                 .arg(current_word)
                 .arg(prev_word)
+                .env("COMP_LINE", line)
+                .env("COMP_POINT", pos.to_string())
                 .output();
 
             if let Ok(out) = output {
