@@ -28,14 +28,36 @@ pub fn execute_builtin(
         "cd" => execute_cd(&command.arguments),
         "history" => execute_history(shell, command, stdout_override),
         "complete" => execute_complete(shell, command, stdout_override),
-        "declare" => {
-            todo!()
-        }
+        "declare" => execute_declare(command, stdout_override),
         _ => Err(ShellError::CommandNotFound(format!(
             "{}: command not found",
             command.program
         ))),
     }
+}
+
+fn execute_declare(
+    command: &Command,
+    stdout_override: Option<Box<dyn Write>>,
+) -> Result<i32, ShellError> {
+    let mut writer = get_command_writer(command, stdout_override)?;
+
+    if let Some(first_arg) = command.arguments.first() {
+        match first_arg.as_str() {
+            "-p" => {
+                let variable = match command.arguments.get(1) {
+                    Some(v) => v,
+                    None => "",
+                };
+                writeln!(writer, "declare: {}: not found", variable)?;
+                return Ok(0);
+            }
+            _ => {
+                unimplemented!()
+            }
+        }
+    }
+    Ok(1)
 }
 
 fn execute_complete(
