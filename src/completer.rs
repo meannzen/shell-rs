@@ -59,18 +59,24 @@ impl Completer for MyHelper {
 
             if let Ok(out) = output {
                 let stdout = String::from_utf8_lossy(&out.stdout);
-                if let Some(candidate) = stdout.lines().next() {
-                    let trimmed = candidate.trim();
-                    if trimmed.is_empty() {
-                        return Ok((0, Vec::new()));
-                    }
+                let mut candidates: Vec<String> = stdout
+                    .lines()
+                    .map(|l| l.trim().to_string())
+                    .filter(|l| !l.is_empty())
+                    .collect();
 
-                    let pair = Pair {
-                        display: trimmed.to_string(),
-                        replacement: format!("{} ", trimmed),
-                    };
+                candidates.sort();
 
-                    return Ok((start_pos, vec![pair]));
+                if !candidates.is_empty() {
+                    let matches: Vec<Pair> = candidates
+                        .into_iter()
+                        .map(|c| Pair {
+                            display: c.clone(),
+                            replacement: format!("{} ", c),
+                        })
+                        .collect();
+
+                    return Ok((start_pos, matches));
                 }
             }
         }
