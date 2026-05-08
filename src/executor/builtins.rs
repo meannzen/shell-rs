@@ -42,13 +42,23 @@ fn execute_complete(
     if let Some(first) = command.arguments.first() {
         match first.as_str() {
             "-p" => {
-                if let Some(two) = command.arguments.get(1) {
+                if let Some(cmd_name) = command.arguments.get(1) {
                     let completions_regitry = shell.completions_regitry.lock().unwrap();
-                    if let Some(path) = completions_regitry.get(two) {
-                        writeln!(writer, "complete -C '{}' {}", path, two)?;
+                    if let Some(path) = completions_regitry.get(cmd_name) {
+                        writeln!(writer, "complete -C '{}' {}", path, cmd_name)?;
                     } else {
-                        writeln!(writer, "complete: {}: no completion specification", two)?;
+                        writeln!(
+                            writer,
+                            "complete: {}: no completion specification",
+                            cmd_name
+                        )?;
                     }
+                }
+            }
+            "-r" => {
+                if let Some(cmd_name) = command.arguments.get(1) {
+                    let mut completions_regitry = shell.completions_regitry.lock().unwrap();
+                    completions_regitry.remove(cmd_name);
                 }
             }
             "-C" => {
