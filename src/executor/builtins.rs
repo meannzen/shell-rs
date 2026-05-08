@@ -28,7 +28,7 @@ pub fn execute_builtin(
         "cd" => execute_cd(&command.arguments),
         "history" => execute_history(shell, command, stdout_override),
         "complete" => execute_complete(shell, command, stdout_override),
-        "declare" => execute_declare(command, stdout_override),
+        "declare" => execute_declare(shell, command, stdout_override),
         _ => Err(ShellError::CommandNotFound(format!(
             "{}: command not found",
             command.program
@@ -37,6 +37,7 @@ pub fn execute_builtin(
 }
 
 fn execute_declare(
+    shell: &mut Shell,
     command: &Command,
     stdout_override: Option<Box<dyn Write>>,
 ) -> Result<i32, ShellError> {
@@ -49,11 +50,20 @@ fn execute_declare(
                     Some(v) => v,
                     None => "",
                 };
+                if let Some(value) = shell.variables.get(variable) {
+                    writeln!(writer, "declare -- {}=\"{}\"", variable, value)?;
+                    return Ok(0);
+                }
                 writeln!(writer, "declare: {}: not found", variable)?;
-                return Ok(0);
             }
-            _ => {
-                unimplemented!()
+            str_valus => {
+                let arrays: Vec<_> = str_valus.splitn(2, "=").collect();
+                if let Some(key) = arrays.first()
+                    && let Some(value) = arrays.get(1)
+                {
+                    shell.variables.insert(key.to_string(), value.to_string());
+                    return Ok(0);
+                }
             }
         }
     }

@@ -32,6 +32,7 @@ pub struct Shell {
     pub history_append_index: usize,
     pub file_history_path: Option<String>,
     pub completions_regitry: Arc<Mutex<HashMap<String, String>>>,
+    pub variables: HashMap<String, String>,
 }
 
 impl Shell {
@@ -50,6 +51,7 @@ impl Shell {
             history_append_index,
             file_history_path,
             completions_regitry: Arc::new(Mutex::new(HashMap::new())),
+            variables: HashMap::new(),
         };
 
         shell.command_names = shell.collect_command_names();
