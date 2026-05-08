@@ -4,29 +4,54 @@ use crate::{
         ast::{Command, Pipeline, Redirection},
         lexer::Token,
     },
+    shell::VariableType,
 };
+
+pub fn expand_variables(s: &str, variables: &VariableType) -> String {
+    let mut result = String::with_capacity(s.len());
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '$' {
+            let var_name: String = if chars.peek() == Some(&'{') {
+                chars.next();
+                let name: String = chars.by_ref().take_while(|c| *c != '}').collect();
+                name
+            } else {
+                chars
+                    .by_ref()
+                    .take_while(|c| c.is_alphanumeric() || *c == '_')
+                    .collect()
+            };
+            if var_name.is_empty() {
+                result.push('$');
+            } else {
+                let value = variables.lock().unwrap().get(&var_name).cloned().unwrap_or_default();
+                result.push_str(&value);
+            }
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
 
 pub mod ast;
 pub mod lexer;
 
 pub fn parse_tokens(tokens: Vec<Token>) -> Result<Vec<Pipeline>, ShellError> {
     let mut tokens_iter = tokens.into_iter().peekable();
-
     let mut pipelines: Vec<Pipeline> = Vec::new();
-
     while tokens_iter.peek().is_some() {
-        let pipeline = parse_pipeline(&mut tokens_iter)?;
-        pipelines.push(pipeline);
+        pipelines.push(parse_pipeline(&mut tokens_iter)?);
     }
-
     Ok(pipelines)
 }
+
 fn parse_pipeline(
     tokens_iter: &mut std::iter::Peekable<std::vec::IntoIter<Token>>,
 ) -> Result<Pipeline, ShellError> {
     let mut commands: Vec<Command> = Vec::new();
     commands.push(parse_command(tokens_iter)?);
-
     while let Some(token) = tokens_iter.peek() {
         if matches!(token, Token::Pipe) {
             tokens_iter.next();
@@ -35,7 +60,6 @@ fn parse_pipeline(
             break;
         }
     }
-
     Ok(Pipeline { commands })
 }
 

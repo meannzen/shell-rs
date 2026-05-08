@@ -15,13 +15,15 @@ use crate::{
     completer::MyHelper,
     error::ShellError,
     executor::execute_pipeline,
-    parser::{ast::Pipeline, lexer::Token, parse_tokens},
+    parser::{ast::Pipeline, expand_variables, lexer::Token, parse_tokens},
     util,
 };
 use std::{
     collections::HashMap,
     fs::{self},
 };
+
+pub type VariableType = Arc<Mutex<HashMap<String, String>>>;
 
 #[derive(Debug, Default)]
 pub struct Shell {
@@ -32,7 +34,7 @@ pub struct Shell {
     pub history_append_index: usize,
     pub file_history_path: Option<String>,
     pub completions_regitry: Arc<Mutex<HashMap<String, String>>>,
-    pub variables: HashMap<String, String>,
+    pub variables: VariableType,
 }
 
 impl Shell {
@@ -51,7 +53,7 @@ impl Shell {
             history_append_index,
             file_history_path,
             completions_regitry: Arc::new(Mutex::new(HashMap::new())),
-            variables: HashMap::new(),
+            variables: Arc::new(Mutex::new(HashMap::new())),
         };
 
         shell.command_names = shell.collect_command_names();
@@ -117,9 +119,14 @@ impl Shell {
     }
 
     fn parse_input(&mut self, input: &str) -> Result<Vec<Pipeline>, ShellError> {
-        let tokens = Token::tokenize(input)?;
-        let pipelines = parse_tokens(tokens)?;
-        Ok(pipelines)
+        let tokens = Token::tokenize(input)?
+            .into_iter()
+            .map(|t| match t {
+                Token::Word(w) => Token::Word(expand_variables(&w, &self.variables)),
+                other => other,
+            })
+            .collect();
+        parse_tokens(tokens)
     }
 
     pub fn run(&mut self) {

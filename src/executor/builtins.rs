@@ -51,7 +51,7 @@ fn execute_declare(
                     None => "",
                 };
 
-                if let Some(value) = shell.variables.get(key) {
+                if let Some(value) = shell.variables.lock().unwrap().get(key) {
                     writeln!(writer, "declare -- {}=\"{}\"", key, value)?;
                     return Ok(0);
                 }
@@ -73,7 +73,11 @@ fn execute_declare(
                         )?;
                         return Ok(1);
                     }
-                    shell.variables.insert(key.to_string(), value.to_string());
+                    shell
+                        .variables
+                        .lock()
+                        .unwrap()
+                        .insert(key.to_string(), value.to_string());
                     return Ok(0);
                 }
             }
