@@ -46,21 +46,33 @@ fn execute_declare(
     if let Some(first_arg) = command.arguments.first() {
         match first_arg.as_str() {
             "-p" => {
-                let variable = match command.arguments.get(1) {
+                let key = match command.arguments.get(1) {
                     Some(v) => v,
                     None => "",
                 };
-                if let Some(value) = shell.variables.get(variable) {
-                    writeln!(writer, "declare -- {}=\"{}\"", variable, value)?;
+
+                if let Some(value) = shell.variables.get(key) {
+                    writeln!(writer, "declare -- {}=\"{}\"", key, value)?;
                     return Ok(0);
                 }
-                writeln!(writer, "declare: {}: not found", variable)?;
+                writeln!(writer, "declare: {}: not found", key)?;
             }
             str_valus => {
                 let arrays: Vec<_> = str_valus.splitn(2, "=").collect();
                 if let Some(key) = arrays.first()
                     && let Some(value) = arrays.get(1)
                 {
+                    let trimmed = key.trim_ascii();
+                    if trimmed.starts_with(|c: char| c.is_ascii_digit())
+                        || trimmed.contains(|c: char| c.is_ascii_punctuation() && c != '_')
+                    {
+                        writeln!(
+                            writer,
+                            "declare: `{}={}': not a valid identifier",
+                            key, value
+                        )?;
+                        return Ok(1);
+                    }
                     shell.variables.insert(key.to_string(), value.to_string());
                     return Ok(0);
                 }
