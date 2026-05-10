@@ -25,8 +25,9 @@ pub fn expand_variables(s: &str, variables: &VariableType) -> String {
             if var_name.is_empty() {
                 result.push('$');
             } else {
-                let value = variables.lock().unwrap().get(&var_name).cloned().unwrap_or_default();
-                result.push_str(&value);
+                if let Some(value) = variables.lock().unwrap().get(&var_name).cloned() {
+                    result.push_str(&value);
+                }
             }
         } else {
             result.push(c);

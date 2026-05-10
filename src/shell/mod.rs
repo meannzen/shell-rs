@@ -121,9 +121,12 @@ impl Shell {
     fn parse_input(&mut self, input: &str) -> Result<Vec<Pipeline>, ShellError> {
         let tokens = Token::tokenize(input)?
             .into_iter()
-            .map(|t| match t {
-                Token::Word(w) => Token::Word(expand_variables(&w, &self.variables)),
-                other => other,
+            .filter_map(|t| match t {
+                Token::Word(w) => {
+                    let expanded = expand_variables(&w, &self.variables);
+                    if expanded.is_empty() { None } else { Some(Token::Word(expanded)) }
+                }
+                other => Some(other),
             })
             .collect();
         parse_tokens(tokens)
