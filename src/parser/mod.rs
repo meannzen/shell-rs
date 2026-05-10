@@ -57,6 +57,9 @@ fn parse_pipeline(
         if matches!(token, Token::Pipe) {
             tokens_iter.next();
             commands.push(parse_command(tokens_iter)?);
+        } else if matches!(token, Token::Background) {
+            tokens_iter.next();
+            // I don't know todo there
         } else {
             break;
         }
