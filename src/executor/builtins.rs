@@ -8,7 +8,7 @@ use std::{
 use crate::{error::ShellError, parser::ast::Command, shell::Shell, util};
 
 const BUILTINS: &[&str] = &[
-    "exit", "echo", "type", "pwd", "cd", "history", "complete", "declare",
+    "exit", "echo", "type", "pwd", "cd", "history", "complete", "declare", "jobs",
 ];
 
 pub fn is_builtin(program: &str) -> bool {
@@ -28,7 +28,9 @@ pub fn execute_builtin(
         "cd" => execute_cd(&command.arguments),
         "history" => execute_history(shell, command, stdout_override),
         "complete" => execute_complete(shell, command, stdout_override),
+
         "declare" => execute_declare(shell, command, stdout_override),
+        "jobs" => Ok(0),
         _ => Err(ShellError::CommandNotFound(format!(
             "{}: command not found",
             command.program
