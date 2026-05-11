@@ -8,7 +8,7 @@ use std::{
 use crate::{error::ShellError, parser::ast::Command, shell::Shell, util};
 
 const BUILTINS: &[&str] = &[
-    "exit", "echo", "type", "pwd", "cd", "history", "complete", "declare", "jobs", "sleep",
+    "exit", "echo", "type", "pwd", "cd", "history", "complete", "declare", "jobs",
 ];
 
 pub fn is_builtin(program: &str) -> bool {
@@ -30,29 +30,11 @@ pub fn execute_builtin(
         "complete" => execute_complete(shell, command, stdout_override),
         "declare" => execute_declare(shell, command, stdout_override),
         "jobs" => execute_jobs(shell, command, stdout_override),
-        "sleep" => execute_sleep(shell, command, stdout_override),
         _ => Err(ShellError::CommandNotFound(format!(
             "{}: command not found",
             command.program
         ))),
     }
-}
-
-fn execute_sleep(
-    _shell: &mut Shell,
-    command: &Command,
-    stdout_override: Option<Box<dyn Write>>,
-) -> Result<i32, ShellError> {
-    let mut writer = get_command_writer(command, stdout_override)?;
-    if let Some(arg) = command.arguments.first() {
-        let child = std::process::Command::new("sleep")
-            .arg(arg)
-            .spawn()
-            .unwrap();
-        writeln!(writer, "[1] {}", child.id())?;
-    }
-
-    Ok(0)
 }
 
 fn execute_declare(
@@ -231,7 +213,13 @@ fn execute_jobs(
 ) -> Result<i32, ShellError> {
     let mut writer = get_command_writer(command, stdout_override)?;
     for job in &shell.jobs {
-        writeln!(writer, "[{}]  Running\t\t{}", job.id, job.cmd)?;
+        writeln!(
+            writer,
+            "[{}]+ Running\t\t\t{} {} &",
+            job.id,
+            job.cmd,
+            job.arguments.join(" "),
+        )?;
     }
     Ok(0)
 }

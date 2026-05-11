@@ -25,11 +25,13 @@ use std::{
 
 pub type VariableType = Arc<Mutex<HashMap<String, String>>>;
 
+#[derive(Debug)]
 pub struct Job {
     pub id: usize,
     pub pid: u32,
     pub cmd: String,
     pub child: std::process::Child,
+    pub arguments: Vec<String>,
 }
 
 #[derive(Default)]

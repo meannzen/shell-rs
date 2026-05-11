@@ -66,7 +66,10 @@ fn parse_pipeline(
             break;
         }
     }
-    Ok(Pipeline { commands, background })
+    Ok(Pipeline {
+        commands,
+        background,
+    })
 }
 
 fn parse_command(

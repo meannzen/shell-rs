@@ -103,7 +103,13 @@ pub fn execute_pipeline(shell: &mut Shell, pipeline: Pipeline) -> Result<i32, Sh
         let job_id = shell.jobs.len() + 1;
         for child in children {
             let pid = child.id();
-            shell.jobs.push(Job { id: job_id, pid, cmd: cmd_str.clone(), child });
+            shell.jobs.push(Job {
+                id: job_id,
+                pid,
+                cmd: cmd_str.clone(),
+                child,
+                arguments: pipeline.commands[0].arguments.clone(),
+            });
             println!("[{}] {}", job_id, pid);
         }
         return Ok(0);
