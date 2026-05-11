@@ -212,14 +212,21 @@ fn execute_jobs(
     stdout_override: Option<Box<dyn Write>>,
 ) -> Result<i32, ShellError> {
     let mut writer = get_command_writer(command, stdout_override)?;
-    for job in &shell.jobs {
-        writeln!(
-            writer,
-            "[{}]+ Running\t\t\t{} {} &",
-            job.id,
-            job.cmd,
-            job.arguments.join(" "),
-        )?;
+    let len = shell.jobs.len();
+    for (i, job) in shell.jobs.iter().enumerate() {
+        let marker = if i + 1 == len {
+            '+'
+        } else if i + 2 == len {
+            '-'
+        } else {
+            ' '
+        };
+        let full_cmd = if job.arguments.is_empty() {
+            format!("{} &", job.cmd)
+        } else {
+            format!("{} {} &", job.cmd, job.arguments.join(" "))
+        };
+        writeln!(writer, "[{}]{}  Running\t\t\t{}", job.id, marker, full_cmd)?;
     }
     Ok(0)
 }

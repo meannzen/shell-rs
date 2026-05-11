@@ -25,6 +25,13 @@ use std::{
 
 pub type VariableType = Arc<Mutex<HashMap<String, String>>>;
 
+#[derive(Clone, Debug)]
+pub enum JobStatus {
+    Todo,
+    Progress,
+    Finish,
+}
+
 #[derive(Debug)]
 pub struct Job {
     pub id: usize,
@@ -32,6 +39,7 @@ pub struct Job {
     pub cmd: String,
     pub child: std::process::Child,
     pub arguments: Vec<String>,
+    pub status: JobStatus,
 }
 
 #[derive(Default)]
