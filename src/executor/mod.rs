@@ -4,7 +4,7 @@ use crate::{
     error::ShellError,
     executor::builtins::{execute_builtin, is_builtin},
     parser::ast::Pipeline,
-    shell::{Job, JobStatus, Shell},
+    shell::{Job, Shell},
 };
 use std::{
     io,
@@ -109,7 +109,6 @@ pub fn execute_pipeline(shell: &mut Shell, pipeline: Pipeline) -> Result<i32, Sh
                 cmd: cmd_str.clone(),
                 child,
                 arguments: pipeline.commands[0].arguments.clone(),
-                status: JobStatus::Todo,
             });
             println!("[{}] {}", job_id, pid);
         }

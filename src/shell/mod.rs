@@ -25,13 +25,6 @@ use std::{
 
 pub type VariableType = Arc<Mutex<HashMap<String, String>>>;
 
-#[derive(Clone, Debug)]
-pub enum JobStatus {
-    Todo,
-    Progress,
-    Finish,
-}
-
 #[derive(Debug)]
 pub struct Job {
     pub id: usize,
@@ -39,7 +32,6 @@ pub struct Job {
     pub cmd: String,
     pub child: std::process::Child,
     pub arguments: Vec<String>,
-    pub status: JobStatus,
 }
 
 #[derive(Default)]
@@ -138,16 +130,9 @@ impl Shell {
     }
 
     pub fn reap_jobs(&mut self) {
-        let mut i = 0;
-        while i < self.jobs.len() {
-            match self.jobs[i].child.try_wait() {
-                Ok(Some(_)) => {
-                    let job = self.jobs.remove(i);
-                    eprintln!("[{}]  Done\t\t{}", job.id, job.cmd);
-                }
-                _ => i += 1,
-            }
-        }
+        self.jobs.retain_mut(|job| {
+            !matches!(job.child.try_wait(), Ok(Some(_)))
+        });
     }
 
     fn parse_input(&mut self, input: &str) -> Result<Vec<Pipeline>, ShellError> {

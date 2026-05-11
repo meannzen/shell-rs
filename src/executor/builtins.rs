@@ -213,21 +213,27 @@ fn execute_jobs(
 ) -> Result<i32, ShellError> {
     let mut writer = get_command_writer(command, stdout_override)?;
     let len = shell.jobs.len();
-    for (i, job) in shell.jobs.iter().enumerate() {
-        let marker = if i + 1 == len {
-            '+'
-        } else if i + 2 == len {
-            '-'
+    let mut done_indices = vec![];
+
+    for (i, job) in shell.jobs.iter_mut().enumerate() {
+        let marker = if i + 1 == len { '+' } else if i + 2 == len { '-' } else { ' ' };
+        let base_cmd = if job.arguments.is_empty() {
+            job.cmd.clone()
         } else {
-            ' '
+            format!("{} {}", job.cmd, job.arguments.join(" "))
         };
-        let full_cmd = if job.arguments.is_empty() {
-            format!("{} &", job.cmd)
+        if matches!(job.child.try_wait(), Ok(Some(_))) {
+            writeln!(writer, "[{}]{}  Done\t\t\t{}", job.id, marker, base_cmd)?;
+            done_indices.push(i);
         } else {
-            format!("{} {} &", job.cmd, job.arguments.join(" "))
-        };
-        writeln!(writer, "[{}]{}  Running\t\t\t{}", job.id, marker, full_cmd)?;
+            writeln!(writer, "[{}]{}  Running\t\t\t{} &", job.id, marker, base_cmd)?;
+        }
     }
+
+    for i in done_indices.into_iter().rev() {
+        shell.jobs.remove(i);
+    }
+
     Ok(0)
 }
 
