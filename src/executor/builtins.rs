@@ -29,7 +29,7 @@ pub fn execute_builtin(
         "history" => execute_history(shell, command, stdout_override),
         "complete" => execute_complete(shell, command, stdout_override),
         "declare" => execute_declare(shell, command, stdout_override),
-        "jobs" => Ok(0),
+        "jobs" => execute_jobs(shell, command, stdout_override),
         "sleep" => execute_sleep(shell, command, stdout_override),
         _ => Err(ShellError::CommandNotFound(format!(
             "{}: command not found",
@@ -220,6 +220,18 @@ fn execute_history(
         for (i, history) in shell.histories.iter().enumerate() {
             writeln!(writer, "{} {}", i + 1, history)?;
         }
+    }
+    Ok(0)
+}
+
+fn execute_jobs(
+    shell: &mut Shell,
+    command: &Command,
+    stdout_override: Option<Box<dyn Write>>,
+) -> Result<i32, ShellError> {
+    let mut writer = get_command_writer(command, stdout_override)?;
+    for job in &shell.jobs {
+        writeln!(writer, "[{}]  Running\t\t{}", job.id, job.cmd)?;
     }
     Ok(0)
 }

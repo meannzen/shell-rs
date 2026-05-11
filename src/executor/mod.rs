@@ -4,7 +4,7 @@ use crate::{
     error::ShellError,
     executor::builtins::{execute_builtin, is_builtin},
     parser::ast::Pipeline,
-    shell::Shell,
+    shell::{Job, Shell},
 };
 use std::{
     io,
@@ -96,6 +96,17 @@ pub fn execute_pipeline(shell: &mut Shell, pipeline: Pipeline) -> Result<i32, Sh
         }
 
         children.push(child);
+    }
+
+    if pipeline.background {
+        let cmd_str = pipeline.commands[0].program.clone();
+        let job_id = shell.jobs.len() + 1;
+        for child in children {
+            let pid = child.id();
+            shell.jobs.push(Job { id: job_id, pid, cmd: cmd_str.clone(), child });
+            println!("[{}] {}", job_id, pid);
+        }
+        return Ok(0);
     }
 
     let mut last_ext_status = 0;

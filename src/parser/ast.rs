@@ -16,4 +16,5 @@ pub struct Command {
 #[derive(Debug)]
 pub struct Pipeline {
     pub commands: Vec<Command>,
+    pub background: bool,
 }

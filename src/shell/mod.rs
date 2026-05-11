@@ -25,7 +25,14 @@ use std::{
 
 pub type VariableType = Arc<Mutex<HashMap<String, String>>>;
 
-#[derive(Debug, Default)]
+pub struct Job {
+    pub id: usize,
+    pub pid: u32,
+    pub cmd: String,
+    pub child: std::process::Child,
+}
+
+#[derive(Default)]
 pub struct Shell {
     pub environment_var: HashMap<String, String>,
     config: Config,
@@ -35,6 +42,7 @@ pub struct Shell {
     pub file_history_path: Option<String>,
     pub completions_regitry: Arc<Mutex<HashMap<String, String>>>,
     pub variables: VariableType,
+    pub jobs: Vec<Job>,
 }
 
 impl Shell {
@@ -54,6 +62,7 @@ impl Shell {
             file_history_path,
             completions_regitry: Arc::new(Mutex::new(HashMap::new())),
             variables: Arc::new(Mutex::new(HashMap::new())),
+            jobs: Vec::new(),
         };
 
         shell.command_names = shell.collect_command_names();
@@ -118,13 +127,30 @@ impl Shell {
             .unwrap_or(false)
     }
 
+    pub fn reap_jobs(&mut self) {
+        let mut i = 0;
+        while i < self.jobs.len() {
+            match self.jobs[i].child.try_wait() {
+                Ok(Some(_)) => {
+                    let job = self.jobs.remove(i);
+                    eprintln!("[{}]  Done\t\t{}", job.id, job.cmd);
+                }
+                _ => i += 1,
+            }
+        }
+    }
+
     fn parse_input(&mut self, input: &str) -> Result<Vec<Pipeline>, ShellError> {
         let tokens = Token::tokenize(input)?
             .into_iter()
             .filter_map(|t| match t {
                 Token::Word(w) => {
                     let expanded = expand_variables(&w, &self.variables);
-                    if expanded.is_empty() { None } else { Some(Token::Word(expanded)) }
+                    if expanded.is_empty() {
+                        None
+                    } else {
+                        Some(Token::Word(expanded))
+                    }
                 }
                 other => Some(other),
             })
@@ -148,6 +174,7 @@ impl Shell {
         rl.set_auto_add_history(true);
 
         loop {
+            self.reap_jobs();
             let readline = rl.readline("$ ");
             match readline {
                 Ok(line) => {

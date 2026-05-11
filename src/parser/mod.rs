@@ -52,6 +52,7 @@ fn parse_pipeline(
     tokens_iter: &mut std::iter::Peekable<std::vec::IntoIter<Token>>,
 ) -> Result<Pipeline, ShellError> {
     let mut commands: Vec<Command> = Vec::new();
+    let mut background = false;
     commands.push(parse_command(tokens_iter)?);
     while let Some(token) = tokens_iter.peek() {
         if matches!(token, Token::Pipe) {
@@ -59,12 +60,13 @@ fn parse_pipeline(
             commands.push(parse_command(tokens_iter)?);
         } else if matches!(token, Token::Background) {
             tokens_iter.next();
-            // I don't know todo there
+            background = true;
+            break;
         } else {
             break;
         }
     }
-    Ok(Pipeline { commands })
+    Ok(Pipeline { commands, background })
 }
 
 fn parse_command(
