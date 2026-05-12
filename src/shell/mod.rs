@@ -130,9 +130,29 @@ impl Shell {
     }
 
     pub fn reap_jobs(&mut self) {
-        self.jobs.retain_mut(|job| {
-            !matches!(job.child.try_wait(), Ok(Some(_)))
-        });
+        let len = self.jobs.len();
+        let mut done_indices = vec![];
+
+        for (i, job) in self.jobs.iter_mut().enumerate() {
+            if matches!(job.child.try_wait(), Ok(Some(_))) {
+                done_indices.push(i);
+            }
+        }
+
+        for &i in &done_indices {
+            let marker = if i + 1 == len { '+' } else if i + 2 == len { '-' } else { ' ' };
+            let job = &self.jobs[i];
+            let base_cmd = if job.arguments.is_empty() {
+                job.cmd.clone()
+            } else {
+                format!("{} {}", job.cmd, job.arguments.join(" "))
+            };
+            println!("[{}]{}  Done\t\t\t{}", job.id, marker, base_cmd);
+        }
+
+        for i in done_indices.into_iter().rev() {
+            self.jobs.remove(i);
+        }
     }
 
     fn parse_input(&mut self, input: &str) -> Result<Vec<Pipeline>, ShellError> {
