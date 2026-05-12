@@ -97,21 +97,30 @@ impl Completer for MyHelper {
             }
         }
 
-        let (pos, pairs) = self.file_completer.complete(line, pos, ctx)?;
+        let (start, pairs) = self.file_completer.complete(line, pos, ctx)?;
 
         let adjusted_pairs = pairs
             .into_iter()
             .map(|mut p| {
-                if !p.replacement.ends_with('/') && !p.replacement.ends_with('\\') {
+                // Check the replacement string to see if it's a directory
+                let is_dir = p.replacement.ends_with('/') || p.replacement.ends_with('\\');
+
+                if !is_dir {
+                    // It's a file: Add the trailing space required by your tester
                     if !p.replacement.ends_with(' ') {
                         p.replacement.push(' ');
                     }
                 }
+
+                // Ensure the 'display' matches the 'replacement'
+                // (but without the trailing space for the visual menu)
+                p.display = p.replacement.trim_end().to_string();
+
                 p
             })
             .collect();
 
-        Ok((pos, adjusted_pairs))
+        Ok((start, adjusted_pairs))
     }
 }
 
