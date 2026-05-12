@@ -216,7 +216,13 @@ fn execute_jobs(
     let mut done_indices = vec![];
 
     for (i, job) in shell.jobs.iter_mut().enumerate() {
-        let marker = if i + 1 == len { '+' } else if i + 2 == len { '-' } else { ' ' };
+        let marker = if i + 1 == len {
+            '+'
+        } else if i + 2 == len {
+            '-'
+        } else {
+            ' '
+        };
         let base_cmd = if job.arguments.is_empty() {
             job.cmd.clone()
         } else {
@@ -226,7 +232,11 @@ fn execute_jobs(
             writeln!(writer, "[{}]{}  Done\t\t\t{}", job.id, marker, base_cmd)?;
             done_indices.push(i);
         } else {
-            writeln!(writer, "[{}]{}  Running\t\t\t{} &", job.id, marker, base_cmd)?;
+            writeln!(
+                writer,
+                "[{}]{}  Running\t\t\t{} &",
+                job.id, marker, base_cmd
+            )?;
         }
     }
 

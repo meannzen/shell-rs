@@ -18,7 +18,7 @@ impl Completer for MyHelper {
         &self,
         line: &str,
         pos: usize,
-        _ctx: &Context<'_>,
+        ctx: &Context<'_>,
     ) -> std::result::Result<(usize, Vec<Pair>), rustyline::error::ReadlineError> {
         let sub_line = &line[..pos];
 
@@ -92,10 +92,24 @@ impl Completer for MyHelper {
                     replacement: format!("{} ", c),
                 })
                 .collect();
-            return Ok((0, matches));
+            if !matches.is_empty() {
+                return Ok((0, matches));
+            }
         }
 
-        Ok((0, Vec::new()))
+        let (pos, pairs) = self.file_completer.complete(line, pos, ctx)?;
+
+        let space_pairs = pairs
+            .into_iter()
+            .map(|mut p| {
+                if !p.replacement.ends_with(' ') {
+                    p.replacement.push(' ');
+                }
+                p
+            })
+            .collect();
+
+        Ok((pos, space_pairs))
     }
 }
 

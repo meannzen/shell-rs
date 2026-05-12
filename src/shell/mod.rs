@@ -140,7 +140,13 @@ impl Shell {
         }
 
         for &i in &done_indices {
-            let marker = if i + 1 == len { '+' } else if i + 2 == len { '-' } else { ' ' };
+            let marker = if i + 1 == len {
+                '+'
+            } else if i + 2 == len {
+                '-'
+            } else {
+                ' '
+            };
             let job = &self.jobs[i];
             let base_cmd = if job.arguments.is_empty() {
                 job.cmd.clone()
