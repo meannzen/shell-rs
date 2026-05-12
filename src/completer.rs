@@ -99,17 +99,19 @@ impl Completer for MyHelper {
 
         let (pos, pairs) = self.file_completer.complete(line, pos, ctx)?;
 
-        let space_pairs = pairs
+        let adjusted_pairs = pairs
             .into_iter()
             .map(|mut p| {
-                if !p.replacement.ends_with(' ') {
-                    p.replacement.push(' ');
+                if !p.replacement.ends_with('/') && !p.replacement.ends_with('\\') {
+                    if !p.replacement.ends_with(' ') {
+                        p.replacement.push(' ');
+                    }
                 }
                 p
             })
             .collect();
 
-        Ok((pos, space_pairs))
+        Ok((pos, adjusted_pairs))
     }
 }
 
