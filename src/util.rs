@@ -34,7 +34,7 @@ pub fn append_history(
             if len >= 2 {
                 let _ = f.seek(io::SeekFrom::End(-2));
                 let mut buf = [0u8; 2];
-                if f.read_exact(&mut buf).is_ok() && buf == [b'\n', b'\n'] {
+                if f.read_exact(&mut buf).is_ok() && buf == *b"\n\n" {
                     len - 1
                 } else {
                     len
